@@ -1,0 +1,132 @@
+#:kivy 2.0.0
+#:import hex kivy.utils.get_color_from_hex
+
+
+<RoundedButton@Button>
+    background_color: (0, 0, 0, 0)
+    background_normal: ''
+    back_color: (1, 1, 1, 1)
+    border_radius: [18, 18, 18, 18]
+
+    canvas.before:
+        Color:
+            rgba: self.back_color
+
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: self.border_radius or [18, 18, 18, 18]
+
+
+<AniWidget@RelativeLayout>
+    size_hint: None, None
+    pos: self.pos
+    size: self.size # root.height*0.2, root.height*0.2 * 4 / 3 #
+    border_radius: [18, 18, 18, 18]
+    thumbnailUrl: ""
+    aniText: ""
+    episodeNumber: 0
+
+    canvas.before:
+        StencilPush
+
+        Color:
+            rgba: hex("#000000FF")
+        RoundedRectangle:
+            size: self.size
+            radius: [30, 5, 30, 5]
+
+        StencilUse
+
+
+    canvas.after:
+        StencilUnUse
+
+        Color:
+            rgba: hex("#000000FF")
+        RoundedRectangle:
+            size: self.size
+            radius: [30, 5, 30, 5]
+
+        StencilPop
+
+    AsyncImage:
+        source: self.parent.thumbnailUrl
+        pos: 0, self.parent.size[1]*0.2
+        size_hint: None, None
+        size: self.parent.size[0], self.parent.size[1]*0.8
+        allow_stretch: True
+        keep_ratio: False
+
+    RoundedButton:
+        back_color: hex("#3F4146FF")
+        border_radius: [0, 0, 30, 5]
+
+        size_hint: None, None
+        size: self.parent.size[0], self.parent.size[1]*0.2
+        pos: 0, 0
+
+    Button:
+        background_color: (0, 0, 0, 0)
+
+        size_hint: None, None
+        pos: 0, 0
+        size: self.parent.size[0], self.parent.size[1]*0.2
+        text_size: self.parent.size[0], None
+
+        text: self.parent.aniText + f"\nEpisode {self.parent.episodeNumber}"
+        valign: "middle"
+        halign: "center"
+        font_name: "Cyberbit.ttf"
+        #shorten: True
+
+
+<HomeWindow>:
+    canvas.before:
+        Color:
+            rgba: hex("#34373CFF")
+
+        Rectangle:
+            pos: 0, 0
+            size: root.width, root.height
+
+        Color:
+            rgba: hex("#5865F2FF")
+
+        RoundedRectangle:
+            id: TopBar
+            pos: 0, root.height*0.9
+            size: root.width, root.height*0.1
+            radius: [0, 0, root.height*0.04, root.height*0.04]
+    
+    ScrollView:
+        size: root.width, root.height*0.9
+        #effect_cls: "ScrollEffect"
+        scroll_wheel_distance: 20
+        
+        GridLayout:
+            id: AniGridLayout
+            size: root.width, root.height*0.9
+            orientation: "lr-tb"
+            size_hint_y: None
+            
+            height: self.minimum_height
+            
+            cols: root.gridCols
+            padding: root.padding
+            spacing: root.spacingX, 40
+
+            AniWidget:
+                id: PlaceHolder
+
+                width: root.aniWidgetWidth
+                height: root.aniWidgetHeight
+
+    FloatLayout:
+        size: root.size
+
+        Label:
+            text: "ProjectAniPhoenix"
+            font_size: root.height*0.1*0.4
+            size: root.width, root.height*0.1
+            pos: -root.width/2 + (root.height*0.1*0.4)*len("ProjectAniPhoenix")/2*0.6, root.height*0.45
