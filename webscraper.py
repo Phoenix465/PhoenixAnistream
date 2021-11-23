@@ -31,9 +31,13 @@ def GetLatestDataAnimeDaoTo() -> list:
     url = r"https://animedao.to"
 
     urlRequest = requests.get(url, headers=headers)
+    #urlRequest = None
 
-    if urlRequest.status_code == 200:
+    if True or urlRequest.status_code == 200:
         content = urlRequest.content
+        #file = open("AnimeDao.html", mode="r", encoding="utf8")
+        #content = file.read()
+        #file.close()
 
         tree = bs4.BeautifulSoup(content, 'lxml')
 

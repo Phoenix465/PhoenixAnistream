@@ -5,7 +5,7 @@
 <RoundedButton@Button>
     background_color: (0, 0, 0, 0)
     background_normal: ''
-    back_color: (1, 1, 1, 1)
+    back_color: (1, 1, 1, 0)
     border_radius: [18, 18, 18, 18]
 
     canvas.before:
@@ -26,15 +26,18 @@
     thumbnailUrl: ""
     aniText: ""
     episodeNumber: 0
+    imageSizeY: 0
+    fontSize: 0
 
     canvas.before:
         StencilPush
 
-        Color:
-            rgba: hex("#000000FF")
+        #Color:
+        #    rgba: hex("#00000000")
         RoundedRectangle:
+            pos: 0, 0
             size: self.size
-            radius: [30, 5, 30, 5]
+            radius: [25, 5, 25, 5]
 
         StencilUse
 
@@ -42,42 +45,57 @@
     canvas.after:
         StencilUnUse
 
-        Color:
-            rgba: hex("#000000FF")
+        #Color:
+        #    rgba: hex("#00000000")
         RoundedRectangle:
-            size: self.size
-            radius: [30, 5, 30, 5]
+            pos: 0, 0
+
+            #Bug Start --- It cause rectangle in corner..
+            # I suppose setting the size to 0 elimates  traces of the rectangle to stay behind
+            # This somehow clears the stencil though, even though I'm not redrawing it as said in the documentation...
+            # whatever it works
+
+            size: 0, 0 # self.size
+            radius: [25, 5, 25, 5]
 
         StencilPop
 
-    AsyncImage:
-        source: self.parent.thumbnailUrl
-        pos: 0, self.parent.size[1]*0.2
+
+    Image:
+        id: Thumbnail
+
+        source: "loading.gif"
+        pos: 0, self.parent.size[1]*(1-self.parent.imageSizeY)
         size_hint: None, None
-        size: self.parent.size[0], self.parent.size[1]*0.8
+        size: self.parent.size[0], self.parent.size[1]*self.parent.imageSizeY
         allow_stretch: True
         keep_ratio: False
+        mipmapping: True
 
     RoundedButton:
         back_color: hex("#3F4146FF")
         border_radius: [0, 0, 30, 5]
 
         size_hint: None, None
-        size: self.parent.size[0], self.parent.size[1]*0.2
+        size: self.parent.size[0], self.parent.size[1]*(1-self.parent.imageSizeY)
         pos: 0, 0
 
     Button:
+        id: AniLabelButton
+
         background_color: (0, 0, 0, 0)
 
         size_hint: None, None
         pos: 0, 0
-        size: self.parent.size[0], self.parent.size[1]*0.2
+        size: self.parent.size[0], self.parent.size[1]*(1-self.parent.imageSizeY)
         text_size: self.parent.size[0], None
 
-        text: self.parent.aniText + f"\nEpisode {self.parent.episodeNumber}"
-        valign: "middle"
+        text: self.parent.aniText + f"\n[color=A0A0A0]Episode {self.parent.episodeNumber}[/color]"
+        valign: "top"
         halign: "center"
         font_name: "Cyberbit.ttf"
+        font_size: self.parent.fontSize
+        markup: True
         #shorten: True
 
 
@@ -85,6 +103,7 @@
     canvas.before:
         Color:
             rgba: hex("#34373CFF")
+            #rgba: hex("#FF33FCFF")
 
         Rectangle:
             pos: 0, 0
@@ -130,3 +149,5 @@
             font_size: root.height*0.1*0.4
             size: root.width, root.height*0.1
             pos: -root.width/2 + (root.height*0.1*0.4)*len("ProjectAniPhoenix")/2*0.6, root.height*0.45
+
+
