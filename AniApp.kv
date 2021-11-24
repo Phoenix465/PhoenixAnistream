@@ -50,8 +50,8 @@
         RoundedRectangle:
             pos: 0, 0
 
-            #Bug Start --- It cause rectangle in corner..
-            # I suppose setting the size to 0 elimates  traces of the rectangle to stay behind
+            # It cause rectangle in corner..
+            # I suppose setting the size to 0 eliminates traces of the rectangle to stay behind
             # This somehow clears the stencil though, even though I'm not redrawing it as said in the documentation...
             # whatever it works
 
@@ -70,7 +70,7 @@
         size: self.parent.size[0], self.parent.size[1]*self.parent.imageSizeY
         allow_stretch: True
         keep_ratio: False
-        mipmapping: True
+        mipmap: True
 
     RoundedButton:
         back_color: hex("#3F4146FF")
