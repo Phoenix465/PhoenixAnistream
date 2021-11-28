@@ -1,8 +1,10 @@
+from concurrent.futures import ThreadPoolExecutor
+from urllib.parse import quote_plus
+
 import bs4
 import requests
 
 #import line_profiler_pycharm
-
 
 
 headers = {
@@ -16,18 +18,19 @@ def RemoveDuplicatedPreserveOrder(listData) -> list:
     return [data for data in listData if not (data in seen or seen.add(data))]
 
 
+def parseTitleEp(titleEpString, default=None) -> tuple:
+    nameSplit = titleEpString.split(" ")
+    reversedNameSplit = nameSplit[::-1]
+
+    episodeNumber = reversedNameSplit.pop(0)
+
+    try:
+        return True, int(episodeNumber), " ".join(reversedNameSplit[1:][::-1])  # Some can be float but ignore them
+    except ValueError:
+        return False, default, ""
+
+
 def GetLatestDataAnimeDaoTo() -> list:
-    def parseTitleEp(titleEpString, default=None) -> tuple:
-        nameSplit = titleEpString.split(" ")
-        reversedNameSplit = nameSplit[::-1]
-
-        episodeNumber = reversedNameSplit.pop(0)
-
-        try:
-            return True, int(episodeNumber), " ".join(reversedNameSplit[1:][::-1])  # Some can be float but ignore them
-        except ValueError:
-            return False, default, ""
-
     url = r"https://animedao.to"
 
     urlRequest = requests.get(url, headers=headers)
@@ -66,12 +69,78 @@ def GetLatestDataAnimeDaoTo() -> list:
     return []
 
 
+def SearchDataAnimeDaoTo(query):
+    baseUrl = r"https://animedao.to"
+    requestUrl = f"{baseUrl}/search/?search={quote_plus(query)}"
+
+    urlRequest = requests.get(requestUrl, headers=headers)
+
+    if urlRequest.status_code == 200:
+        content = urlRequest.content
+        #print(getsizeof(content))
+
+        tree = bs4.BeautifulSoup(content, 'lxml')
+
+        divLatestGroup = tree.findAll('div', {"class": "col-xs-12 col-sm-6 col-md-6 col-lg-4"})
+
+        aniData = []
+
+        for div in divLatestGroup:
+            data = {}
+
+            aniLink = div.findAll("a")[0].get("href", "")
+            data["ani"] = baseUrl + aniLink
+
+            imageLink = div.findAll('img')[0]["data-src"]
+            data["thumbnail"] = baseUrl + imageLink
+
+            nameData = div.findAll("div", {"class": "ongoingtitle"})[0]
+            title = nameData.findAll("b")[0].text
+            titleData = nameData.findAll("small")[0].text
+
+            data["name"] = title
+            data["nameExtra"] = titleData
+
+            aniData.append(data)
+
+        return aniData
+
+    return []
+
+
+def GetAnimeGenres(aniData):
+    def getAniGenre(aniUrl):
+        baseUrl = r"https://animedao.to"
+
+        urlRequest = requests.get(aniUrl, headers=headers)
+
+        if urlRequest.status_code == 200:
+            content = urlRequest.content
+            # print(getsizeof(content))
+
+            tree = bs4.BeautifulSoup(content, 'lxml')
+            genreHrefs = tree.find_all("a", {"class": "animeinfo_label"})
+
+            return [a.get("href", "").split("=")[-1] for a in genreHrefs]
+
+        return []
+
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        results = executor.map(getAniGenre, [data["ani"] for data in aniData])
+
+    return [genre for genre in results]
+
+
 if __name__ == "__main__":
     from time import time
 
     s = time()
-    data = GetLatestDataAnimeDaoTo()
+    data = SearchDataAnimeDaoTo("Sword Art online")
+    data2 = GetAnimeGenres(data)
+    print(data2)
     e = time() - s
 
     print(f"{round(e*1000)}ms")
     #pprint(data)
+
+    #SearchDataAnimeDaoTo("Sword Art Online")

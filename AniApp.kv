@@ -2,6 +2,13 @@
 #:import hex kivy.utils.get_color_from_hex
 
 
+<WindowManager@ScreenManager>:
+    Screen:
+        name: "MainWindow"
+        HomeWindow
+            id: HomeWindow
+
+
 <RoundedButton@Button>
     background_color: (0, 0, 0, 0)
     background_normal: ''
@@ -17,7 +24,19 @@
             size: self.size
             radius: self.border_radius or [18, 18, 18, 18]
 
+<SearchInputBox@TextInput>
+    pos: self.pos
+    size: self.size
+    size_hint: None, None
 
+    canvas.before:
+        Color:
+            rgb: 1, 1, 1
+        
+        Line:
+            points: self.pos[0], self.pos[1], self.pos[0]+self.size[0], self.pos[1]
+            width: 1
+        
 <AniWidget@RelativeLayout>
     size_hint: None, None
     pos: self.pos
@@ -99,7 +118,90 @@
         #shorten: True
 
 
-<HomeWindow>:
+<SearchAniWidget@RelativeLayout>
+    size_hint: None, None
+    pos: self.pos
+    size: self.size # root.height*0.2, root.height*0.2 * 4 / 3 #
+    border_radius: [18, 18, 18, 18]
+    thumbnailUrl: ""
+    aniText: ""
+    extraNames: ""
+    genre: ""
+    imageSizeY: 0
+    fontSize: 0
+
+    canvas.before:
+        StencilPush
+
+        #Color:
+        #    rgba: hex("#00000000")
+        RoundedRectangle:
+            pos: 0, 0
+            size: self.size
+            radius: [25, 5, 25, 5]
+
+        StencilUse
+
+
+    canvas.after:
+        StencilUnUse
+
+        #Color:
+        #    rgba: hex("#00000000")
+        RoundedRectangle:
+            pos: 0, 0
+
+            # It cause rectangle in corner..
+            # I suppose setting the size to 0 eliminates traces of the rectangle to stay behind
+            # This somehow clears the stencil though, even though I'm not redrawing it as said in the documentation...
+            # whatever it works
+
+            size: 0, 0 # self.size
+            radius: [25, 5, 25, 5]
+
+        StencilPop
+
+
+    Image:
+        id: Thumbnail
+
+        source: "loading.gif"
+        pos: 0, self.parent.size[1]*(1-self.parent.imageSizeY)
+        size_hint: None, None
+        size: self.parent.size[0], self.parent.size[1]*self.parent.imageSizeY
+        allow_stretch: True
+        keep_ratio: False
+        mipmap: True
+
+    RoundedButton:
+        back_color: hex("#3F4146FF")
+        border_radius: [0, 0, 30, 5]
+
+        size_hint: None, None
+        size: self.parent.size[0], self.parent.size[1]*(1-self.parent.imageSizeY)
+        pos: 0, 0
+
+    Button:
+        id: AniLabelButton
+
+        background_color: (0, 0, 0, 0)
+
+        size_hint: None, None
+        pos: 0, 0
+        size: self.parent.size[0], self.parent.size[1]*(1-self.parent.imageSizeY)
+        text_size: self.parent.size[0], None
+
+        text: self.parent.aniText + f"\n[color=A0A0A0]{self.parent.extraNames}\n{self.parent.genre}[/color]"
+        valign: "top"
+        halign: "center"
+        font_name: "Cyberbit.ttf"
+        font_size: self.parent.fontSize
+        markup: True
+        #shorten: True
+
+
+
+<HomeWindow@Widget>:
     canvas.before:
         Color:
             rgba: hex("#34373CFF")
@@ -117,8 +219,79 @@
             pos: 0, root.height*0.9
             size: root.width, root.height*0.1
             radius: [0, 0, root.height*0.04, root.height*0.04]
-    
+
+    Button:
+        id: SearchButton
+        background_normal: ""
+        background_color: (0, 0, 0, 0)
+        pos: root.width*0.95 - ((root.height*0.1+2)*2), root.height*(0.9 + 0.01)
+        size: root.height*0.08, root.height*0.08
+
+        on_press: root.SearchButtonToggle()
+
+        Image:
+            pos: self.parent.pos
+            size: self.parent.size
+            size_hint: None, None
+            source: "search.png"
+            mipmap: True
+
+    Button:
+        background_normal: ""
+        background_color: (0, 0, 0, 0)
+        pos: root.width*0.95 - (root.height*0.1+2), root.height*(0.9 + 0.01)
+        size: root.height*0.08, root.height*0.08
+
+        Image:
+            pos: self.parent.pos
+            size: self.parent.size
+            size_hint: None, None
+            source: "bookmark.png"
+            mipmap: True
+
+    Button:
+        id: BackButton
+
+        background_normal: ""
+        background_color: (0, 0, 0, 0)
+        pos: root.width*0.02, root.height*(0.9 + 0.01)
+        size: root.height*0.08, root.height*0.08
+
+        opacity: 0
+
+        on_press: root.SearchButtonToggle()
+
+        Image:
+            pos: self.parent.pos
+            size: self.parent.size
+            size_hint: None, None
+            source: "backarrow.png"
+            mipmap: True
+
+    SearchInputBox:
+        id: TextInputSearchBox
+
+        background_normal: ""
+
+        size: 0, root.height*0.08
+        pos: root.width*0.9, root.height*(0.9 + 0.01)
+        #pos: 200, root.height*(0.9 + 0.01)
+        
+        opacity: 0
+
+        cursor_color: (0.8, 0.8, 0.8, 1)
+        selection_color: hex("#589BF288")
+        foreground_color: (1, 1, 1, 1)
+        background_color: (0,0,0,0)
+
+        font_size: root.height/24
+        font_name: "Cyberbit.ttf"
+
+        multiline: False
+        readonly: True
+        
     ScrollView:
+        id: ScrollAniGrid
         size: root.width, root.height*0.9
         #effect_cls: "ScrollEffect"
         scroll_wheel_distance: 20
@@ -141,10 +314,37 @@
                 width: root.aniWidgetWidth
                 height: root.aniWidgetHeight
 
+    ScrollView:
+        id: ScrollSearchGrid
+
+        size: root.width, root.height*0.9
+        #effect_cls: "ScrollEffect"
+        scroll_wheel_distance: 20
+
+        GridLayout:
+            id: SearchGridLayout
+            size: root.width, root.height*0.9
+            orientation: "lr-tb"
+            size_hint_y: None
+
+            height: self.minimum_height
+
+            cols: root.gridCols
+            padding: root.padding
+            spacing: root.spacingX, 40
+
+            SearchAniWidget:
+                id: PlaceHolder2
+
+                width: root.aniWidgetWidth
+                height: root.aniWidgetHeight
+
     FloatLayout:
         size: root.size
 
         Label:
+            id: Title
+
             text: "ProjectAniPhoenix"
             font_size: root.height*0.1*0.4
             size: root.width, root.height*0.1
