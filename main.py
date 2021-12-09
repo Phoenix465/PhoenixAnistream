@@ -2,6 +2,7 @@ import queue
 import threading
 
 import kivy
+from kivy.uix.textinput import TextInput
 
 kivy.require('2.0.0')  # replace with your current kivy version !
 
@@ -13,8 +14,8 @@ Window.size = (1280/2, 720/2)
 from kivy.app import App
 from kivy.uix.widget import Widget
 from kivy.uix.relativelayout import RelativeLayout
-from kivy.properties import NumericProperty, BooleanProperty
-from kivy.uix.screenmanager import ScreenManager
+from kivy.properties import NumericProperty, BooleanProperty, StringProperty
+from kivy.uix.screenmanager import ScreenManager, SlideTransition
 from kivy.animation import Animation
 from kivy.clock import Clock
 from kivy.clock import mainthread
@@ -58,6 +59,21 @@ class WindowManager(ScreenManager):
     pass
 
 
+class EpisodeWidget(RelativeLayout):
+    pass
+
+
+class TempInputBox(TextInput):
+    def insert_text(self, substring, from_undo=False):
+        substring = "".join([char for char in substring if char in "0123456789"])
+        new = self.text + substring
+
+        if new != "" and int(new) > self.parent.maxEp:
+            substring = ""
+
+        return super(TempInputBox, self).insert_text(substring, from_undo=from_undo)
+
+
 class HomeWindow(Widget):
     padding = NumericProperty(20)
     spacingX = NumericProperty(10)
@@ -80,6 +96,8 @@ class HomeWindow(Widget):
 
     searchQueue = queue.LifoQueue()
     latestSearchThread = None
+
+    infoWindowWidget = None
 
     # --- Ani Data Updater ---
     def updateVars(self, dt):
@@ -155,7 +173,8 @@ class HomeWindow(Widget):
                                aniText=aniData["name"],
                                imageSizeY=self.imageSizeY,
                                episodeNumber=aniData["episode"],
-                               fontSize=self.fontSize)
+                               fontSize=self.fontSize,
+                               data=aniData)
 
             gridLayout.add_widget(widget)
 
@@ -186,7 +205,7 @@ class HomeWindow(Widget):
         image.reload()
 
     def updateImageTextures(self, values):
-        #return
+        return
 
         with ThreadPoolExecutor(max_workers=5) as executor:
             results = executor.map(self.updateImageTexture, values)
@@ -239,7 +258,8 @@ class HomeWindow(Widget):
                     genre=", ".join(genreData[i]),
                     imageSizeY=self.imageSizeY,
                     extraNames=data["nameExtra"],
-                    fontSize=self.fontSize)
+                    fontSize=self.fontSize,
+                    data=data)
 
                 gridLayout.add_widget(widget)
 
@@ -252,7 +272,7 @@ class HomeWindow(Widget):
             threading.Thread(target=self.runSearchQueue, daemon=True).start()
 
         searchData = webscraper.SearchDataAnimeDaoTo(searchQuery)
-        genreData = webscraper.GetAnimeGenres(searchData)
+        genreData = webscraper.GetAniGenres(searchData)
         gridLayout = self.ids.SearchGridLayout
         gridLayout.clear_widgets()
 
@@ -339,11 +359,224 @@ class HomeWindow(Widget):
             searchBoxAnim.start(searchBox)
             searchBox.readonly = True
 
+    def AniSearchButtonPressed(self, instance):
+        self.parent.manager.transition.direction = 'down'
+        self.parent.manager.current = "AniInfoWindow"
+
+        self.infoWindowWidget.generateAniData(instance.data["ani"])
+
+
+class InfoWindow(Widget):
+    aniName = StringProperty("Your Name")
+
+    epWidgetWidth = NumericProperty(Window.size[1] * 0.1)
+    epWidgetHeight = NumericProperty(Window.size[1] * 0.1)
+
+    gridCols = NumericProperty(5)
+    spacingX = NumericProperty(20)
+
+    placeholderExists = True
+
+    def BackArrowPressed(self):
+        self.parent.manager.transition.direction = 'up'
+        self.parent.manager.current = "MainWindow"
+
+        self.ids.description.textDescription = ""
+        self.ids.EpisodeGridLayout.clear_widgets()
+        self.aniName = ""
+        self.ids.Thumbnail.source = "loading.gif"
+
+    def updateImageTexture(self, data):
+        image, url = data
+        fileName = url.split("/")[-1]
+        filePath = path.join("cache", fileName)
+
+        if not path.isfile(filePath):
+            request = requests.get(url)
+            if request.ok:
+                content = request.content
+                file = open(filePath, "wb")
+                file.write(content)
+                file.close()
+
+                self.loadImageTexture(image, filePath)
+        else:
+            self.loadImageTexture(image, filePath)
+
+    @mainthread
+    def loadImageTexture(self, image, filePath):
+        image.source = filePath
+        image.reload()
+
+    def updateImageTextures(self, values):
+        #return
+
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            results = executor.map(self.updateImageTexture, values)
+
+        for result in results:
+            force = result  # Generating Result :)
+
+    def updateVars(self, *args):
+        width, height = Window.size
+
+        self.epWidgetWidth = height * 0.1
+        self.epWidgetHeight = height * 0.1
+
+        self.gridCols = round((width*0.8) // (self.epWidgetWidth + 20))
+        self.spacingX = ((width*0.8) - 20-20 - self.gridCols * self.epWidgetWidth) / max(1, self.gridCols - 1)
+
+        episodeGridLayout = self.ids.EpisodeGridLayout
+        for child in episodeGridLayout.children:
+            child.height = self.epWidgetHeight
+            child.width = self.epWidgetWidth
+            child.fontSize = height/24
+
+    def refreshDescription(self, *args):
+        width, height = Window.size
+
+        self.updateVars()
+
+        descriptionId = self.ids.description
+
+        text = descriptionId.textDescription
+        textS = text.split("\n")
+
+        rowsPLengths = [len(t) * (height / 24) * 0.55 for t in textS]
+        rowsLengths = [ceil(pLength / ((1 - 0.05 * 2) * width)) for pLength in rowsPLengths]
+
+        rows = sum(rowsLengths)
+        rows += 1
+
+        adjHeight = rows * height / 24
+
+        episodeGridLayout = self.ids.EpisodeGridLayout
+        episodeGridLayout.y = 0
+
+        episodeInput = self.ids.EpisodeInput
+        episodeInput.y = episodeGridLayout.minimum_height + (0.05*height)
+        episodeInput.maxEp = len(episodeGridLayout.children)
+
+        episodeInputInput = episodeInput.ids.EpisodeInputInput
+        episodeInputInput.hint_text = f"Episode No between 1 to {episodeInput.maxEp}"
+
+        descriptionId.descriptionHeight = adjHeight
+        descriptionId.descriptionHeightOffset = episodeInput.y + episodeInput.height + (0.05*height)
+
+        self.ids.RelLayout.height = episodeGridLayout.minimum_height + episodeInput.height + descriptionId.height + self.ids.Thumbnail.height + (0.05*3*height)
+        episodeGridLayout.y = 0
+
+    def searchClicked(self):
+        episodeGridLayout = self.ids.EpisodeGridLayout
+        scrollSearchGrid = self.ids.ScrollSearchGrid
+        episodeInput = self.ids.EpisodeInput
+
+        for widget in episodeGridLayout.children:
+            if int(widget.ids.ButtonWidget.text or '-1') == int(episodeInput.ids.EpisodeInputInput.text or '-2'):
+                scrollSearchGrid.scroll_to(widget)
+
+    def generateAniData(self, aniUrl):
+        def loadAniData(url):
+            data = webscraper.GetAniData(aniUrl)
+
+            self.aniName = data[0]
+
+            descriptionId = self.ids.description
+            descriptionId.textDescription = data[2]
+            self.refreshDescription()
+
+            episodeGridLayout = self.ids.EpisodeGridLayout
+
+            if self.placeholderExists:
+                episodePlaceHolder = self.ids.EpisodePlaceHolder
+                episodeGridLayout.remove_widget(episodePlaceHolder)
+                self.placeholderExists = False
+
+            titleAlready = []
+
+            movies = 0
+            special = 0
+            extra = 0
+
+            epData = []
+            for episodeData in data[3]:
+                # Not sure for this part..
+                if True or self.aniName in episodeData["title"]:
+                    adjTitle = episodeData["title"].replace(self.aniName,  "").strip()
+                    numberEp = adjTitle.lower().replace("episode", "").strip()
+
+                    if numberEp not in titleAlready:
+                        titleAlready.append(numberEp)
+
+                        nameEpFilter = "".join([char for char in numberEp if char in "0123456789"])
+                        special = "episode" not in adjTitle.lower()
+
+                        mode = 0
+                        colour = 0
+
+                        if "special" in adjTitle.lower():
+                            special += 1
+                            mode = 1
+                            colour = "#ffd700"
+
+                        elif "movie" in adjTitle.lower():
+                            movies += 1
+                            mode = 2
+                            colour = "#0AB4FC"
+
+                        elif len(nameEpFilter) == 0:
+                            extra += 1
+                            mode = 3
+                            nameEpFilter = str(extra)
+                            colour = "#6a0dad"
+
+                        elif "episode" not in adjTitle.lower():
+                            special += 1
+                            mode = 1
+                            colour = "#ffd700"
+
+                        else:
+                            colour = "#555961"
+
+                        episodeData["mode"] = mode
+                        episodeData["colour"] = colour
+                        episodeData["number"] = nameEpFilter
+                        
+                        episodeData["priority"] = f"{mode}.{str(int(nameEpFilter or '0')):>05}"
+
+                        epData.append(episodeData)
+
+            episodeGridLayout.clear_widgets()
+
+            for episodeData in sorted(epData, key=lambda data: data["priority"]):
+                if episodeData["mode"] == 0:
+                    newEp = EpisodeWidget(
+                        width=self.epWidgetWidth,
+                        height=self.epWidgetHeight,
+                        episodeNumber=episodeData["number"],
+                        colour=episodeData["colour"]
+                    )
+
+                    episodeGridLayout.add_widget(newEp)
+
+            episodeGridLayout = self.ids.EpisodeGridLayout
+            episodeGridLayout.y = 0
+
+            scrollSearchGrid = self.ids.ScrollSearchGrid
+            scrollSearchGrid.scroll_to(self.ids.Thumbnail)
+
+            threading.Thread(target=self.updateImageTextures, args=([(self.ids.Thumbnail.__self__, data[1])],), daemon=True).start()
+
+        loadThread = threading.Thread(target=loadAniData, args=(aniUrl,), daemon=True)
+        loadThread.start()
+
 
 class AniApp(App):
     def build(self):
         windowManager = WindowManager()
         homeWindow = windowManager.ids.HomeWindow
+        infoWindow = windowManager.ids.InfoWindow
+        homeWindow.infoWindowWidget = infoWindow
         #homeWindow = HomeWindow()
 
         Clock.schedule_once(homeWindow.updateLatestAniData, 0)
@@ -351,8 +584,12 @@ class AniApp(App):
 
         Clock.schedule_interval(homeWindow.updateVars, 1/30)
         Clock.schedule_interval(homeWindow.updateAniWidgets, 1/60)
+
+        Clock.schedule_interval(infoWindow.refreshDescription, 1/60)
+        #Clock.schedule_interval(infoWindow.updateVars, 1/30)
         #Clock.schedule_interval(homeWindow.pollSearchInput, 1/10)
 
+        windowManager.transition = SlideTransition()
         #windowManager.current = "MainWindow"
         #self.manager.transition.direction = "left"
 

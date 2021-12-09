@@ -24,9 +24,16 @@ def parseTitleEp(titleEpString, default=None) -> tuple:
 
     episodeNumber = reversedNameSplit.pop(0)
 
+    number = None
     try:
-        return True, int(episodeNumber), " ".join(reversedNameSplit[1:][::-1])  # Some can be float but ignore them
+        number = float(episodeNumber)
+        number = int(episodeNumber)
+
+        return True, number, " ".join(reversedNameSplit[1:][::-1])
     except ValueError:
+        if isinstance(number, float):
+            return True, number, " ".join(reversedNameSplit[1:][::-1])
+
         return False, default, ""
 
 
@@ -108,7 +115,7 @@ def SearchDataAnimeDaoTo(query):
     return []
 
 
-def GetAnimeGenres(aniData):
+def GetAniGenres(aniData):
     def getAniGenre(aniUrl):
         baseUrl = r"https://animedao.to"
 
@@ -131,12 +138,35 @@ def GetAnimeGenres(aniData):
     return [genre for genre in results]
 
 
+def GetAniData(aniUrl):
+    urlRequest = requests.get(aniUrl, headers=headers)
+    baseUrl = r"https://animedao.to"
+
+    if urlRequest.status_code == 200:
+        content = urlRequest.content
+        # print(getsizeof(content))
+
+        tree = bs4.BeautifulSoup(content, 'lxml')
+        episodeHref = [a for a in tree.find_all("a") if "view" in a["href"]]
+        episodeData = [[a["href"], a.find("div", {"class": "anime-title"})] for a in episodeHref]
+
+        episodeData = [{"view": data[0], "title": data[1].text.strip(), "name": data[1].parent.find_all("span")[-1]["title"]} for data in episodeData if data[1].parent.find_all("span")[-1].get("title", "")]
+
+        description = tree.find("div", {"id": "demo"}).text.strip()
+        icon = baseUrl + tree.find("img")["src"]
+
+        title = "-".join(tree.title.text.split("-")[:-1]).strip()
+
+        return title, icon, description, episodeData
+
+    return None, None, None, None
+
+
 if __name__ == "__main__":
     from time import time
 
     s = time()
-    data = SearchDataAnimeDaoTo("Sword Art online")
-    data2 = GetAnimeGenres(data)
+    data2 = GetAniData(r"https://animedao.to/anime/sword-art-online/")
     print(data2)
     e = time() - s
 

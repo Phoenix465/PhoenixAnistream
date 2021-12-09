@@ -3,10 +3,24 @@
 
 
 <WindowManager@ScreenManager>:
+    canvas.before:
+        Color:
+            rgba: hex("#34373CFF")
+
+        Rectangle:
+            size: self.size
+            pos: self.pos
+
     Screen:
         name: "MainWindow"
-        HomeWindow
+        HomeWindow:
             id: HomeWindow
+
+    Screen:
+        name: "AniInfoWindow"
+
+        InfoWindow:
+            id: InfoWindow
 
 
 <RoundedButton@Button>
@@ -36,7 +50,49 @@
         Line:
             points: self.pos[0], self.pos[1], self.pos[0]+self.size[0], self.pos[1]
             width: 1
-        
+
+<TempInputBox@TextInput>
+
+
+<EpisodeInputBox@FloatLayout>
+    pos: self.pos
+    size: self.size
+    size_hint: None, None
+    maxEp: 2
+
+    canvas.before:
+        Color:
+            rgba: 1, 1, 1, 1
+
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [self.size[1]/2] * 4
+
+        Color:
+            rgb: hex("#282a2b")
+
+        RoundedRectangle:
+            pos: self.pos[0]+1, self.pos[1]+1
+            size: self.size[0]-2, self.size[1]-2
+            radius: [self.size[1]/2] * 4
+
+    TempInputBox:
+        id: EpisodeInputInput
+
+        pos: self.parent.pos
+        size: self.parent.size
+
+        font_size: self.size[1] / 2
+
+        input_filter: "int"
+
+        background_color: hex("#00000000")
+        foreground_color: hex("#FFFFFFFF")
+        background_normal: ""
+        cursor_color: hex("#19e3cbFF")
+        hint_text: f"Episode No between 1 to {root.maxEp}"
+
 <AniWidget@RelativeLayout>
     size_hint: None, None
     pos: self.pos
@@ -47,12 +103,13 @@
     episodeNumber: 0
     imageSizeY: 0
     fontSize: 0
+    data: None
 
     canvas.before:
         StencilPush
 
-        #Color:
-        #    rgba: hex("#00000000")
+        Color:
+            rgba: hex("#00000000")
         RoundedRectangle:
             pos: 0, 0
             size: self.size
@@ -64,8 +121,8 @@
     canvas.after:
         StencilUnUse
 
-        #Color:
-        #    rgba: hex("#00000000")
+        Color:
+            rgba: hex("#00000000")
         RoundedRectangle:
             pos: 0, 0
 
@@ -117,6 +174,12 @@
         markup: True
         #shorten: True
 
+    Button:
+        background_color: (0, 0, 0, 0)
+        background_normal: ''
+        back_color: (0, 0, 0, 0)
+
+        on_press: root.parent.parent.parent.AniSearchButtonPressed(root)
 
 <SearchAniWidget@RelativeLayout>
     size_hint: None, None
@@ -129,6 +192,7 @@
     genre: ""
     imageSizeY: 0
     fontSize: 0
+    data: None
 
     canvas.before:
         StencilPush
@@ -156,7 +220,8 @@
             # This somehow clears the stencil though, even though I'm not redrawing it as said in the documentation...
             # whatever it works
 
-            size: 0, 0 # self.size
+            size: 0, 0
+            #size: self.size
             radius: [25, 5, 25, 5]
 
         StencilPop
@@ -199,7 +264,53 @@
         markup: True
         #shorten: True
 
+    Button:
+        background_color: (0, 0, 0, 0)
+        background_normal: ''
+        back_color: (0, 0, 0, 0)
 
+        on_press: root.parent.parent.parent.AniSearchButtonPressed(root)
+
+
+<EpisodeWidget@RelativeLayout>:
+    size_hint: None, None
+    pos: self.pos
+    size: self.size # root.height*0.2, root.height*0.2 * 4 / 3 #
+    border_radius: [18, 18, 18, 18]
+    fontSize: 0
+    episodeNumber: "0"
+    colour: "#ffd700"
+
+    canvas.before:
+        Color:
+            rgb: hex("#000000")
+
+        RoundedRectangle:
+            pos: 2, -2
+            size: self.size
+            radius: [10, 10, 10, 10]
+
+        Color:
+            rgb: hex(self.colour)
+
+        RoundedRectangle:
+            pos: 0, 0
+            size: self.size
+            radius: [10, 10, 10, 10]
+
+    Button:
+        id: ButtonWidget
+
+        background_color: (0, 0, 0, 0)
+        background_normal: ''
+
+        pos: 0, 0
+        size_hint: None, None
+        size: self.parent.size
+        valign: "middle"
+        font_size: self.parent.fontSize
+
+        text: self.parent.episodeNumber
 
 <HomeWindow@Widget>:
     canvas.before:
@@ -350,4 +461,173 @@
             size: root.width, root.height*0.1
             pos: -root.width/2 + (root.height*0.1*0.4)*len("ProjectAniPhoenix")/2*0.6, root.height*0.45
 
+
+<InfoWindow@Widget>:
+    canvas.before:
+        Color:
+            rgba: hex("#34373CFF")
+            #rgba: hex("#FF33FCFF")
+
+        Rectangle:
+            pos: 0, 0
+            size: root.width, root.height
+
+        Color:
+            rgba: hex("#5865F2FF")
+
+        RoundedRectangle:
+            id: TopBar
+            pos: 0, root.height*0.9
+            size: root.width, root.height*0.1
+            radius: [0, 0, root.height*0.04, root.height*0.04]
+
+    Button:
+        id: BackButton
+
+        background_normal: ""
+        background_color: (0, 0, 0, 0)
+        pos: root.width*0.005, root.height*(0.9 + 0.01)
+        size: root.height*0.08, root.height*0.08
+
+        on_press: root.BackArrowPressed()
+
+        Image:
+            pos: self.parent.pos
+            size: self.parent.size
+            size_hint: None, None
+            source: "backarrow.png"
+            #mipmap: True
+
+    ScrollView:
+        id: ScrollSearchGrid
+
+        pos: 0, 0
+        size: root.width, root.height*0.9
+        #effect_cls: "ScrollEffect"
+        scroll_wheel_distance: 20
+
+        RelativeLayout:
+            id: RelLayout
+
+            size_hint: None, None
+            size: root.width, 100
+            pos: 0, 0
+
+            Image:
+                id: Thumbnail
+
+                source: "loading.gif"
+                pos: self.parent.width/2 - (root.height*0.4/2), self.parent.height-(root.height*0.4 * 16/9)-(0.05*root.height)
+                size_hint: None, None
+                size: root.height*0.4, root.height*0.4 * 16/9
+                allow_stretch: True
+                keep_ratio: False
+                mipmap: True
+
+                canvas.before:
+                    StencilPush
+
+                    #Color:
+                    #    rgba: hex("#00000000")
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [25, 5, 25, 5]
+
+                    StencilUse
+
+
+                canvas.after:
+                    StencilUnUse
+
+                    #Color:
+                    #    rgba: hex("#00000000")
+                    RoundedRectangle:
+                        pos: self.pos
+
+                        # It cause rectangle in corner..
+                        # I suppose setting the size to 0 eliminates traces of the rectangle to stay behind
+                        # This somehow clears the stencil though, even though I'm not redrawing it as said in the documentation...
+                        # whatever it works
+
+                        size: 0, 0
+                        #size: self.size
+                        radius: [25, 5, 25, 5]
+
+                    StencilPop
+
+            Button:
+                background_color: (0, 0, 0, 0)
+                background_normal: ''
+
+                textDescription: ""
+                descriptionHeight: 0
+                descriptionHeightOffset: 0
+
+                id: description
+
+                pos: 0.05*root.width, self.descriptionHeightOffset
+                size_hint: None, None
+                size: (1-0.05*2)*root.width, self.descriptionHeight
+                valign: "middle"
+                text_size: (1-0.05*2)*root.width, None
+                font_size: root.height/24
+
+                text: self.textDescription
+
+            EpisodeInputBox:
+                id: EpisodeInput
+
+                pos: root.width*0.05, 0
+                size: root.width*0.9, root.height/12 * 1.2
+
+                Button:
+                    id: SearchButton
+                    background_normal: ""
+                    background_color: (0, 0, 0, 0)
+                    pos: self.parent.pos[0] + self.parent.size[0]/2 - self.parent.size[1] , self.parent.pos[1]
+                    size: self.parent.size[1], self.parent.size[1]
+
+                    on_press: root.searchClicked()
+
+                    Image:
+                        pos: self.parent.pos
+                        size: self.parent.size[0], self.parent.size[1]
+                        size_hint: None, None
+                        source: "search.png"
+                        mipmap: True
+
+
+            GridLayout:
+                id: EpisodeGridLayout
+                pos: 0.1*root.width, 0#-root.height*0.9
+                size: root.width*0.8, self.minimum_height
+                orientation: "lr-tb"
+                size_hint_y: None
+
+                height: self.minimum_height
+
+                cols: root.gridCols
+
+                padding: 20
+                spacing: root.spacingX, 40
+
+                EpisodeWidget:
+                    opacity: 0
+
+                    id: EpisodePlaceHolder
+
+                    width: 10
+                    height: 10
+
+    FloatLayout:
+        size: root.size
+
+        Label:
+            id: Title
+
+            text: root.aniName
+            font_size: root.height*0.1*0.4
+            size: root.width, root.height*0.1
+            pos: (root.height*0.1) + -root.width/2 + (root.height*0.1*0.4)*len(root.aniName)/2*0.6, root.height*0.45
 
