@@ -420,6 +420,8 @@
     ScrollView:
         id: ScrollAniGrid
         size: root.width, root.height*0.9
+
+        size_hint: 1, None
         #effect_cls: "ScrollEffect"
         scroll_wheel_distance: 20
         
@@ -427,7 +429,7 @@
             id: AniGridLayout
             size: root.width, root.height*0.9
             orientation: "lr-tb"
-            size_hint_y: None
+            size_hint: 1, None
             
             height: self.minimum_height
             
@@ -445,6 +447,7 @@
         id: ScrollSearchGrid
 
         size: root.width, root.height*0.9
+        size_hint: 1, None
         #effect_cls: "ScrollEffect"
         scroll_wheel_distance: 20
 

@@ -115,13 +115,15 @@ class HomeWindow(Widget):
     def updateAniWidgets(self, dt, override=False):
         currentScreensize = Window.size
 
+        searchBox = self.ids.TextInputSearchBox
+
+        gridLayout = self.ids.AniGridLayout if searchBox.opacity == 0 else self.ids.SearchGridLayout
+        gridLayout.height = gridLayout.minimum_height
+
         if currentScreensize != self.oldScreensize or not self.firstUpdateAniWidget or override:
             self.firstUpdateAniWidget = True
             self.SearchButtonToggle(skip=True)
             self.searchInputChanged(reload=True)
-
-            searchBox = self.ids.TextInputSearchBox
-            gridLayout = self.ids.AniGridLayout if searchBox.opacity == 0 else self.ids.SearchGridLayout
 
             maxRows = 0
             for child in gridLayout.children:
@@ -157,14 +159,15 @@ class HomeWindow(Widget):
 
                 child.imageSizeY = self.imageSizeY
 
+            scrollView = self.ids.ScrollAniGrid
+            scrollView.size = (currentScreensize[0], currentScreensize[1]*0.9)
+            scrollView.size_hint = (1, None)
+
         self.oldScreensize = currentScreensize
 
-    def updateLatestAniData(self, dt):
-        self.latestAniData = webscraper.GetLatestDataAnimeDaoTo()
-
+    @mainthread
+    def showGenerateData(self):
         gridLayout = self.ids.AniGridLayout
-
-        gridLayout.remove_widget(self.ids.PlaceHolder)
 
         threadData = []
 
@@ -184,7 +187,18 @@ class HomeWindow(Widget):
 
             threadData.append((widget.ids.Thumbnail, thumbnailUrl))
 
+        self.updateAniWidgets(0, override=True)
         threading.Thread(target=self.updateImageTextures, args=(threadData,), daemon=True).start()
+
+    def grabData(self):
+        self.latestAniData = webscraper.GetLatestDataAnimeDaoTo()
+        self.showGenerateData()
+
+    def updateLatestAniData(self, dt):
+        gridLayout = self.ids.AniGridLayout
+        gridLayout.remove_widget(self.ids.PlaceHolder)
+
+        threading.Thread(target=self.grabData, daemon=True).start()
 
     def updateImageTexture(self, data):
         image, url = data
