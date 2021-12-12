@@ -22,6 +22,11 @@
         InfoWindow:
             id: InfoWindow
 
+    Screen:
+        name: "VideoPlayer"
+
+        VideoWindow:
+            id: VideoWindow
 
 <RoundedButton@Button>
     background_color: (0, 0, 0, 0)
@@ -280,6 +285,9 @@
     fontSize: 0
     episodeNumber: "0"
     colour: "#ffd700"
+    name: self.name
+    title: self.title
+    view: self.view
 
     canvas.before:
         Color:
@@ -311,6 +319,14 @@
         font_size: self.parent.fontSize
 
         text: self.parent.episodeNumber
+
+    Button:
+        background_color: (0, 0, 0, 0)
+        background_normal: ''
+        back_color: (0, 0, 0, 0)
+
+        on_press: root.parent.parent.parent.parent.EpisodeButtonPressed(root)
+
 
 <HomeWindow@Widget>:
     canvas.before:
@@ -631,3 +647,72 @@
             size: root.width, root.height*0.1
             pos: (root.height*0.1) + -root.width/2 + (root.height*0.1*0.4)*len(root.aniName)/2*0.6, root.height*0.45
 
+
+<VideoWindow@Widget>:
+    canvas.before:
+        Color:
+            rgb: 0, 0, 0
+
+        Rectangle:
+            pos: 0, 0
+            size: root.width, root.height
+
+    Video:
+        pos: 0, 0
+        size: root.width, root.height
+
+        id: VideoWidget
+
+        source: ""
+        state: "pause"
+        allow_stretch: True
+
+    Button:
+        pos: 0, 0
+        size: root.width, root.height
+
+        id: TouchButton
+
+        background_color: (0, 0, 0, 0)
+        background_normal: ''
+        back_color: (0, 0, 0, 0)
+
+        on_press: root.touchButtonTouched()
+
+    FloatLayout:
+        size: root.size
+
+        Label:
+            id: Title
+
+            text: root.title
+            font_size: root.height*0.05
+            #size: root.width, root.height*0.1
+            text_size: self.size
+            pos: root.width/72, root.height*0.925
+            halign: "left"
+
+    AnchorLayout:
+        anchor_x: "center"
+        anchor_y: "center"
+
+        pos: 0, 0
+        size: root.width, root.height
+
+        Button:
+            id: PlayPauseButton
+            background_normal: ""
+            background_color: (0, 0, 0, 0)
+            size: root.height*0.3, root.height*0.3
+            size_hint: None, None
+
+            on_press: root.TogglePlayPause()
+
+            Image:
+                id: PlayPauseButtonImage
+
+                pos: self.parent.pos
+                size: self.parent.size
+                size_hint: None, None
+                source: "PauseButtonW.png"
+                mipmap: True

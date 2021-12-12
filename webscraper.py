@@ -1,5 +1,7 @@
+import logging
+import re
 from concurrent.futures import ThreadPoolExecutor
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urlparse
 
 import bs4
 import requests
@@ -150,7 +152,7 @@ def GetAniData(aniUrl):
         episodeHref = [a for a in tree.find_all("a") if "view" in a["href"]]
         episodeData = [[a["href"], a.find("div", {"class": "anime-title"})] for a in episodeHref]
 
-        episodeData = [{"view": data[0], "title": data[1].text.strip(), "name": data[1].parent.find_all("span")[-1]["title"]} for data in episodeData if data[1].parent.find_all("span")[-1].get("title", "")]
+        episodeData = [{"view": baseUrl + data[0], "title": data[1].text.strip(), "name": data[1].parent.find_all("span")[-1]["title"]} for data in episodeData if data[1].parent.find_all("span")[-1].get("title", "")]
 
         description = tree.find("div", {"id": "demo"}).text.strip()
         icon = baseUrl + tree.find("img")["src"]
@@ -162,11 +164,141 @@ def GetAniData(aniUrl):
     return None, None, None, None
 
 
+def extractVideoFiles(aniEpUrl):
+    def getUrlProtocolDomain(url):
+        urlParsed = urlparse(url)
+        return urlParsed.scheme, urlParsed.netloc, urlParsed.path.split("/")[1]
+
+    def recursiveGetVideoUrl(url, finished=False):
+        newUrl = url
+        logging.info(f"Webscraper: Requesting {url}")
+
+        if not finished:
+            urlRequest = requests.get(url, headers=headers)
+
+            endUrl = urlRequest.url
+            urlContent = urlRequest.content
+
+            if urlRequest.status_code == 200:
+                tree = bs4.BeautifulSoup(urlContent, 'lxml')
+
+                urlScheme, urlDomain, urlBasePath = getUrlProtocolDomain(endUrl)
+                logging.info(f"Webscraper: Received {endUrl} : {urlScheme} {urlDomain} {urlBasePath}")
+
+                if urlDomain == "vstream1.xyz":
+                    newUrl = urlScheme + ":" + tree.iframe["src"]
+
+                elif urlDomain == "gogoplay1.com":
+                    if urlBasePath == "streaming.php":
+                        links = tree.find_all("li", {"class": "linkserver"})
+                        links = [link["data-video"] for link in links if link["data-video"]]
+
+                        newUrl = links[0]
+                    elif urlBasePath == "embedplus":
+                        link = re.search("https://gogoplay(.*?)typesub=", urlContent.decode("utf-8")).group()
+                        newUrl = link
+
+                    elif urlBasePath == "download":
+                        aLinks = tree.find_all("a", {"target": "_blank"})
+                        links = [aLink["href"] for aLink in aLinks]
+
+                        newUrl = links[0]
+
+                elif urlDomain == "sbplay2.com":
+                    if urlBasePath == "d":
+                        aTags = tree.find_all("a", {"href": "#"})
+                        functionCalls = [aTag.get("onclick") for aTag in aTags if aTag.get("onclick")]
+                        functionMatches = [re.search("download_video\('(.*?)','(.*?)','(.*?)'\)", call) for call in functionCalls]
+                        functionParams = [(match.group(1), match.group(2), match.group(3)) for match in functionMatches]
+
+                        functionParam = functionParams[-1]
+
+                        #print(functionParams)
+
+                        newUrl = f"{urlScheme}://{urlDomain}/dl?op=download_orig&id={functionParam[0]}&mode={functionParam[1]}&hash={functionParam[2]}"
+
+                    elif urlBasePath == "dl":
+                        if not tree.find("b", {"class": "err"}):
+                            aTags = tree.find_all("a")
+                            aTexts = [aTag.text for aTag in aTags]
+                            #print(aTexts)
+                            downloadA = [aTag["href"] for aTag in aTags if aTag.text == "Direct Download Link"][0]
+
+                            newUrl = downloadA
+                            finished = True
+
+                            #print("FINISHED", newUrl)
+
+                elif urlDomain == "playdrive.xyz" or urlDomain == "mixdrop.to":
+                    if urlBasePath == "e":
+                        newUrl = "empty"
+                        finished = True
+
+                elif urlDomain == "streamsb.net":
+                    newUrl = "empty"
+                    finished = True
+
+                elif urlDomain == "vcdn2.space":
+                    if urlBasePath == "v":
+                        newUrl = "empty"
+                        finished = True
+
+                elif urlDomain == "www.mp4upload.com":
+                    newUrl = "empty"
+                    finished = True
+
+                else:
+                    newUrl = "empty"
+                    finished = True
+
+                logging.info(f"Webscraper: New {newUrl}")
+
+            else:
+                newUrl = "empty"
+                finished = True
+
+        if finished:
+            logging.info("Webscraper: --------------------------------------------")
+            pass
+
+        return finished and newUrl or recursiveGetVideoUrl(newUrl)
+
+    urlRequest = requests.get(aniEpUrl, headers=headers)
+    baseUrl = r"https://animedao.to"
+
+    if urlRequest.status_code == 200:
+        content = urlRequest.content
+        # print(getsizeof(content))
+
+        tree = bs4.BeautifulSoup(content, 'lxml')
+        scripts = tree.find_all("script")
+        scripts = [script.text for script in scripts if "/redirect/" in script.text or "playdrive.xyz" in script.text]
+
+        iframes = [re.search("<iframe (.*?)</iframe>", script).group() for script in scripts]
+
+        sources = [re.search(r'src\s*=\s*"(.+?)"', iframe).group(1) for iframe in iframes]
+        sources = ["redirect" in source and baseUrl + source or source for source in sources]
+
+        urls = []
+        for url in sources:
+            endUrl = recursiveGetVideoUrl(url)
+            urls.append(endUrl)
+
+            if endUrl != "empty":
+                break
+
+        url = [url for url in urls if url != "empty"][0]
+
+        logging.info(f"Webscraper: Final Url {url}")
+
+        return url
+
+
 if __name__ == "__main__":
     from time import time
 
     s = time()
-    data2 = GetAniData(r"https://animedao.to/anime/sword-art-online/")
+    data2 = extractVideoFiles(r"https://animedao.to/view/4704419159/")
     print(data2)
     e = time() - s
 

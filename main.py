@@ -8,8 +8,7 @@ kivy.require('2.0.0')  # replace with your current kivy version !
 
 from kivy.core.window import Window
 
-Window.size = (1280/2, 720/2)
-
+Window.size = (1280 / 2, 720 / 2)
 
 from kivy.app import App
 from kivy.uix.widget import Widget
@@ -22,8 +21,8 @@ from kivy.clock import mainthread
 import os.path as path
 from os import mkdir
 
-#from kivy.loader import Loader
-#Loader.loading_image = "loading.gif"
+# from kivy.loader import Loader
+# Loader.loading_image = "loading.gif"
 
 from math import ceil
 import requests
@@ -31,10 +30,11 @@ from concurrent.futures import ThreadPoolExecutor
 
 import webscraper
 import sys
-
+from time import time
 
 # Back up the reference to the exceptionhook
 sys._excepthook = sys.excepthook
+
 
 def my_exception_hook(exctype, value, traceback):
     # Print the error and traceback
@@ -42,6 +42,7 @@ def my_exception_hook(exctype, value, traceback):
     # Call the normal Exception hook after
     sys._excepthook(exctype, value, traceback)
     sys.exit(1)
+
 
 # Set the exception hook to our wrapping function
 sys.excepthook = my_exception_hook
@@ -106,7 +107,8 @@ class HomeWindow(Widget):
         self.aniWidgetHeight = height * 0.3 * 16 / 9
 
         self.gridCols = round(width // (height * 0.3 + 20))
-        self.spacingX = (width - self.padding - self.padding - self.gridCols * self.aniWidgetWidth) / max(1, self.gridCols - 1)
+        self.spacingX = (width - self.padding - self.padding - self.gridCols * self.aniWidgetWidth) / max(1,
+                                                                                                          self.gridCols - 1)
 
         self.fontSize = height / 36
 
@@ -125,7 +127,7 @@ class HomeWindow(Widget):
             for child in gridLayout.children:
                 text = child.ids.AniLabelButton.text
                 textS = text.split("\n")
-                #text = "\n".join(textS[:-1])
+                # text = "\n".join(textS[:-1])
 
                 rowsPLengths = [len(t) * self.fontSize * 0.55 for t in textS]
                 rowsLengths = [ceil(pLength / self.aniWidgetWidth) for pLength in rowsPLengths]
@@ -133,17 +135,19 @@ class HomeWindow(Widget):
                 rows = sum(rowsLengths)
                 rows += 1
 
-                #print(textS, rowsLengths)
+                # print(textS, rowsLengths)
 
                 if rows > maxRows:
                     maxRows = rows
 
-                    #print(maxRows, textS, rowsLengths)
-            #print()
-            self.aniWidgetHeightExtra = maxRows * (self.fontSize*1.1) - (1-self.imageSizeYOrig)*self.aniWidgetHeight/2
-            self.imageSizeY = (self.imageSizeYOrig * self.aniWidgetHeight) / (self.aniWidgetHeight + self.aniWidgetHeightExtra)
+                    # print(maxRows, textS, rowsLengths)
+            # print()
+            self.aniWidgetHeightExtra = maxRows * (self.fontSize * 1.1) - (
+                        1 - self.imageSizeYOrig) * self.aniWidgetHeight / 2
+            self.imageSizeY = (self.imageSizeYOrig * self.aniWidgetHeight) / (
+                        self.aniWidgetHeight + self.aniWidgetHeightExtra)
 
-            #print(repr(text))
+            # print(repr(text))
 
             for child in gridLayout.children:
                 child.height = self.aniWidgetHeight + self.aniWidgetHeightExtra
@@ -205,7 +209,7 @@ class HomeWindow(Widget):
         image.reload()
 
     def updateImageTextures(self, values):
-        return
+        # return
 
         with ThreadPoolExecutor(max_workers=5) as executor:
             results = executor.map(self.updateImageTexture, values)
@@ -236,8 +240,8 @@ class HomeWindow(Widget):
         self.add_widget(self.ScrollAniGrid)
         self.remove_widget(self.ScrollSearchGrid)
 
-        #self.SearchButtonToggle()
-        #self.SearchButtonToggle()
+        # self.SearchButtonToggle()
+        # self.SearchButtonToggle()
 
     def searchData(self, searchQuery):
         @mainthread
@@ -298,7 +302,8 @@ class HomeWindow(Widget):
                     thread = threading.Thread(target=self.searchData, args=(searchQuery,), daemon=True)
                     self.searchQueue.put(thread)
 
-                    if self.searchQueue.qsize() == 1 and not (self.latestSearchThread and self.latestSearchThread.is_alive):
+                    if self.searchQueue.qsize() == 1 and not (
+                            self.latestSearchThread and self.latestSearchThread.is_alive):
                         self.runSearchQueue()
 
             else:
@@ -339,10 +344,11 @@ class HomeWindow(Widget):
             backButton.disabled = False
             backButton.opacity = 1
 
-            titleAnim = Animation(x=-size[0]/2 - (size[1]*0.1*0.4)*len(titleNameWidget.text)/2*0.6, duration=duration)
+            titleAnim = Animation(x=-size[0] / 2 - (size[1] * 0.1 * 0.4) * len(titleNameWidget.text) / 2 * 0.6,
+                                  duration=duration)
             titleAnim.start(titleNameWidget)
-            
-            searchBoxAnim = Animation(x=size[0]*0.075, width=size[0]*0.8, opacity=1, duration=duration)
+
+            searchBoxAnim = Animation(x=size[0] * 0.075, width=size[0] * 0.8, opacity=1, duration=duration)
             searchBoxAnim.start(searchBox)
             searchBox.readonly = False
         else:
@@ -352,10 +358,11 @@ class HomeWindow(Widget):
             backButton.disabled = True
             backButton.opacity = 0
 
-            titleAnim = Animation(x=-size[0]/2 + (size[1]*0.1*0.4)*len(titleNameWidget.text)/2*0.6, duration=duration)
+            titleAnim = Animation(x=-size[0] / 2 + (size[1] * 0.1 * 0.4) * len(titleNameWidget.text) / 2 * 0.6,
+                                  duration=duration)
             titleAnim.start(titleNameWidget)
-                   
-            searchBoxAnim = Animation(x=size[0]*0.9, width=0, opacity=0, duration=duration)
+
+            searchBoxAnim = Animation(x=size[0] * 0.9, width=0, opacity=0, duration=duration)
             searchBoxAnim.start(searchBox)
             searchBox.readonly = True
 
@@ -376,6 +383,8 @@ class InfoWindow(Widget):
     spacingX = NumericProperty(20)
 
     placeholderExists = True
+
+    videoWindow = None
 
     def BackArrowPressed(self):
         self.parent.manager.transition.direction = 'up'
@@ -409,7 +418,7 @@ class InfoWindow(Widget):
         image.reload()
 
     def updateImageTextures(self, values):
-        #return
+        # return
 
         with ThreadPoolExecutor(max_workers=5) as executor:
             results = executor.map(self.updateImageTexture, values)
@@ -423,14 +432,14 @@ class InfoWindow(Widget):
         self.epWidgetWidth = height * 0.1
         self.epWidgetHeight = height * 0.1
 
-        self.gridCols = round((width*0.8) // (self.epWidgetWidth + 20))
-        self.spacingX = ((width*0.8) - 20-20 - self.gridCols * self.epWidgetWidth) / max(1, self.gridCols - 1)
+        self.gridCols = round((width * 0.8) // (self.epWidgetWidth + 20))
+        self.spacingX = ((width * 0.8) - 20 - 20 - self.gridCols * self.epWidgetWidth) / max(1, self.gridCols - 1)
 
         episodeGridLayout = self.ids.EpisodeGridLayout
         for child in episodeGridLayout.children:
             child.height = self.epWidgetHeight
             child.width = self.epWidgetWidth
-            child.fontSize = height/24
+            child.fontSize = height / 24
 
     def refreshDescription(self, *args):
         width, height = Window.size
@@ -454,16 +463,17 @@ class InfoWindow(Widget):
         episodeGridLayout.y = 0
 
         episodeInput = self.ids.EpisodeInput
-        episodeInput.y = episodeGridLayout.minimum_height + (0.05*height)
+        episodeInput.y = episodeGridLayout.minimum_height + (0.05 * height)
         episodeInput.maxEp = len(episodeGridLayout.children)
 
         episodeInputInput = episodeInput.ids.EpisodeInputInput
         episodeInputInput.hint_text = f"Episode No between 1 to {episodeInput.maxEp}"
 
         descriptionId.descriptionHeight = adjHeight
-        descriptionId.descriptionHeightOffset = episodeInput.y + episodeInput.height + (0.05*height)
+        descriptionId.descriptionHeightOffset = episodeInput.y + episodeInput.height + (0.05 * height)
 
-        self.ids.RelLayout.height = episodeGridLayout.minimum_height + episodeInput.height + descriptionId.height + self.ids.Thumbnail.height + (0.05*3*height)
+        self.ids.RelLayout.height = episodeGridLayout.minimum_height + episodeInput.height + descriptionId.height + self.ids.Thumbnail.height + (
+                    0.05 * 3 * height)
         episodeGridLayout.y = 0
 
     def searchClicked(self):
@@ -502,7 +512,7 @@ class InfoWindow(Widget):
             for episodeData in data[3]:
                 # Not sure for this part..
                 if True or self.aniName in episodeData["title"]:
-                    adjTitle = episodeData["title"].replace(self.aniName,  "").strip()
+                    adjTitle = episodeData["title"].replace(self.aniName, "").strip()
                     numberEp = adjTitle.lower().replace("episode", "").strip()
 
                     if numberEp not in titleAlready:
@@ -541,7 +551,7 @@ class InfoWindow(Widget):
                         episodeData["mode"] = mode
                         episodeData["colour"] = colour
                         episodeData["number"] = nameEpFilter
-                        
+
                         episodeData["priority"] = f"{mode}.{str(int(nameEpFilter or '0')):>05}"
 
                         epData.append(episodeData)
@@ -549,12 +559,16 @@ class InfoWindow(Widget):
             episodeGridLayout.clear_widgets()
 
             for episodeData in sorted(epData, key=lambda data: data["priority"]):
-                if episodeData["mode"] == 0:
+                # print(episodeData)
+                if episodeData["mode"] <= 3:
                     newEp = EpisodeWidget(
                         width=self.epWidgetWidth,
                         height=self.epWidgetHeight,
                         episodeNumber=episodeData["number"],
-                        colour=episodeData["colour"]
+                        title=episodeData["title"],
+                        name=episodeData["name"],
+                        colour=episodeData["colour"],
+                        view=episodeData["view"],
                     )
 
                     episodeGridLayout.add_widget(newEp)
@@ -565,10 +579,72 @@ class InfoWindow(Widget):
             scrollSearchGrid = self.ids.ScrollSearchGrid
             scrollSearchGrid.scroll_to(self.ids.Thumbnail)
 
-            threading.Thread(target=self.updateImageTextures, args=([(self.ids.Thumbnail.__self__, data[1])],), daemon=True).start()
+            threading.Thread(target=self.updateImageTextures, args=([(self.ids.Thumbnail.__self__, data[1])],),
+                             daemon=True).start()
 
         loadThread = threading.Thread(target=loadAniData, args=(aniUrl,), daemon=True)
         loadThread.start()
+
+    def EpisodeButtonPressed(self, instance):
+        self.parent.manager.transition.direction = 'down'
+        self.parent.manager.current = "VideoPlayer"
+
+        self.videoWindow.initiate(instance)
+
+
+class VideoWindow(Widget):
+    title = StringProperty("")
+    name = StringProperty("")
+
+    touchTime = time()
+    touchDuration = 5
+
+    play = True
+    guiState = 0
+
+    def refresh(self, *args):
+        title = self.ids.Title
+        title.text_size = title.size
+
+        guis = [title, self.ids.PlayPauseButton]
+        state = int(self.touchTime > time())
+        self.guiState = state
+
+        for gui in guis:
+            gui.opacity = state
+
+    def touchButtonTouched(self):
+        title = self.ids.Title
+
+        self.touchTime = time() + (title.opacity ^ 1) * 5
+
+    def initiate(self, episodeInstance):
+        def loadVideo(mainWidget, videoWidget, view):
+            finalUrl = webscraper.extractVideoFiles(view)
+            videoWidget.source = finalUrl
+            videoWidget.state = "play"
+
+            mainWidget.touchTime = time() + mainWidget.touchDuration
+
+        video = self.ids.VideoWidget
+        # video.state = "play"
+
+        self.title = episodeInstance.title
+        self.name = episodeInstance.name
+
+        threading.Thread(target=loadVideo, args=(self, video, episodeInstance.view,), daemon=True).start()
+
+    def TogglePlayPause(self):
+        if not self.guiState:
+            self.touchButtonTouched()
+
+        else:
+            self.play = not self.play
+
+            self.ids.PlayPauseButtonImage.source = not self.play and "PlayButtonW.png" or "PauseButtonW.png"
+
+            video = self.ids.VideoWidget
+            video.state = self.play and "play" or "pause"
 
 
 class AniApp(App):
@@ -576,22 +652,26 @@ class AniApp(App):
         windowManager = WindowManager()
         homeWindow = windowManager.ids.HomeWindow
         infoWindow = windowManager.ids.InfoWindow
+        videoWindow = windowManager.ids.VideoWindow
         homeWindow.infoWindowWidget = infoWindow
-        #homeWindow = HomeWindow()
+        infoWindow.videoWindow = videoWindow
+        # homeWindow = HomeWindow()
 
         Clock.schedule_once(homeWindow.updateLatestAniData, 0)
         Clock.schedule_once(homeWindow.setWidget, -1)
 
-        Clock.schedule_interval(homeWindow.updateVars, 1/30)
-        Clock.schedule_interval(homeWindow.updateAniWidgets, 1/60)
+        Clock.schedule_interval(homeWindow.updateVars, 1 / 30)
+        Clock.schedule_interval(homeWindow.updateAniWidgets, 1 / 60)
 
-        Clock.schedule_interval(infoWindow.refreshDescription, 1/60)
-        #Clock.schedule_interval(infoWindow.updateVars, 1/30)
-        #Clock.schedule_interval(homeWindow.pollSearchInput, 1/10)
+        Clock.schedule_interval(infoWindow.refreshDescription, 1 / 60)
+        # Clock.schedule_interval(infoWindow.updateVars, 1/30)
+        # Clock.schedule_interval(homeWindow.pollSearchInput, 1/10)
+
+        Clock.schedule_interval(videoWindow.refresh, 1 / 30)
 
         windowManager.transition = SlideTransition()
-        #windowManager.current = "MainWindow"
-        #self.manager.transition.direction = "left"
+        # windowManager.current = "MainWindow"
+        # self.manager.transition.direction = "left"
 
         return windowManager
 
