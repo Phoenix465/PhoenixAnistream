@@ -11,7 +11,7 @@ from kivy.uix.textinput import TextInput
 kivy.require('2.0.0')  # replace with your current kivy version !
 
 from kivy.core.window import Window
-Window.size = (1280 / 2, 720 / 2)
+#Window.size = (1280 / 2, 720 / 2)
 
 from kivy.config import Config
 Config.set('kivy', 'exit_on_escape', '0')
@@ -54,7 +54,7 @@ def my_exception_hook(exctype, value, traceback):
 sys.excepthook = my_exception_hook
 
 
-def GetDataStore(DataStore, key, default=None):
+def GetDataStore(DataStore, key, default=None, writeDefaultIfNotExists=False):
     if key in DataStore:
         return DataStore[key]
     else:
@@ -398,10 +398,11 @@ class HomeWindow(Widget):
             searchBox.readonly = True
 
     def AniSearchButtonPressed(self, instance):
-        self.parent.manager.transition.direction = 'down'
-        self.parent.manager.current = "AniInfoWindow"
+        if instance.data:
+            self.parent.manager.transition.direction = 'down'
+            self.parent.manager.current = "AniInfoWindow"
 
-        self.infoWindowWidget.generateAniData(instance.data["ani"])
+            self.infoWindowWidget.generateAniData(instance.data["ani"])
 
 
 class InfoWindow(Widget):
@@ -909,6 +910,14 @@ if __name__ == '__main__':
         mkdir("cache")
     except:
         pass
+
+    storedData = JsonStore("data.json")
+
+    if "ScreenSize" in storedData:
+        Window.size = storedData["ScreenSize"]["size"]
+    else:
+        storedData["ScreenSize"] = {"size": (1280 / 2, 720 / 2)}
+        Window.size = (1280 / 2, 720 / 2)
 
     app = AniApp()
 
