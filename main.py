@@ -2,6 +2,7 @@ import queue
 import threading
 
 import kivy
+from kivy.uix.button import Button
 from kivy.uix.textinput import TextInput
 
 kivy.require('2.0.0')  # replace with your current kivy version !
@@ -61,6 +62,10 @@ class WindowManager(ScreenManager):
 
 
 class EpisodeWidget(RelativeLayout):
+    pass
+
+
+class VideoInfo(Button):
     pass
 
 
@@ -609,6 +614,8 @@ class InfoWindow(Widget):
 class VideoWindow(Widget):
     title = StringProperty("")
     name = StringProperty("")
+    positionDurationString = StringProperty("0")
+    volumeString = StringProperty("0")
 
     touchTime = time()
     touchDuration = 5
@@ -616,53 +623,171 @@ class VideoWindow(Widget):
     play = True
     guiState = 0
 
-    def refresh(self, *args):
-        title = self.ids.Title
-        title.text_size = title.size
+    sliderTouched = False
+    sliderAdjustCode = True
 
-        guis = [title, self.ids.PlayPauseButton]
-        state = int(self.touchTime > time())
-        self.guiState = state
+    normalisedDuration = NumericProperty(0)
 
-        for gui in guis:
-            gui.opacity = state
+    finalUrls = []
+    currentUrlData = None
+    currentUrlIndex = None
 
-    def touchButtonTouched(self):
-        title = self.ids.Title
+    rowClicked = False
 
-        self.touchTime = time() + (title.opacity ^ 1) * 5
+    videoInfoHeight = NumericProperty(0)
+    videoInfoWidth = NumericProperty(0)
 
     def initiate(self, episodeInstance):
         def loadVideo(mainWidget, videoWidget, view):
-            finalUrl = webscraper.extractVideoFiles(view)
-            videoWidget.source = finalUrl
+            finalUrls = webscraper.extractVideoFiles(view)
+            mainWidget.finalUrls = finalUrls
+            mainWidget.currentUrlData = mainWidget.finalUrls[-1]
+            mainWidget.currentUrlIndex = len(finalUrls) - 1
+            videoWidget.source = mainWidget.currentUrlData[0]
             videoWidget.state = "play"
 
-            mainWidget.touchTime = time() + mainWidget.touchDuration
+            for data in finalUrls:
+                newWidget = VideoInfo(text=data[1], size=(self.videoInfoWidth, self.videoInfoHeight), sourceLink=data[0])
+                newWidget.bind(on_press=self.VideoInfoButtonClicked)
+                self.ids.RowsGridLayout.add_widget(newWidget)
+
+            #mainWidget.touchTime = time() + mainWidget.touchDuration
 
         video = self.ids.VideoWidget
         # video.state = "play"
+
+        self.ids.DurationSlider.bind(value=self.SliderDurationValueChanged)
+        self.ids.VolumeSlider.bind(value=self.VolumeDurationValueChanged)
+
+        self.ids.RowsGridLayout.clear_widgets()
 
         self.title = episodeInstance.title
         self.name = episodeInstance.name
 
         threading.Thread(target=loadVideo, args=(self, video, episodeInstance.view,), daemon=True).start()
 
-    def TogglePlayPause(self):
-        if not self.guiState:
+    def refresh(self, *args):
+        def convertTimeToDuration(time):
+            return f"{time // 3600:0>2}:{time // 60 - (time // 3600) * 60:0>2}:{time % 60:0>2}" if time >= 3600 else f"{time // 60:0>2}:{time % 60:0>2}"
+
+        width, height = Window.size
+
+        self.videoInfoWidth = width * 0.2
+        self.videoInfoHeight = height/30 * 2
+
+        children = self.ids.RowsGridLayout.children
+        for child in children:
+            child.size = (self.videoInfoWidth, self.videoInfoHeight)
+            child.font_size = height/30
+
+            #print("Setting")
+
+        video = self.ids.VideoWidget
+
+        title = self.ids.Title
+        title.text_size = title.size
+
+        self.positionDurationString = convertTimeToDuration(video.position >= 0 and ceil(video.position) or 0) + " / " + convertTimeToDuration(video.duration >= 0 and ceil(video.duration) or 0)
+        positionDurationText = self.ids.PositionDurationText
+        positionDurationText.text_size = positionDurationText.size
+        positionDurationText.pos = 0, 0
+
+        volumeSlider = self.ids.VolumeSlider
+        volumeSlider.y = height/36 if volumeSlider.opacity else -50 - height/36
+
+        self.volumeString = f"{int(volumeSlider.value)}%"
+        volumeText = self.ids.VolumeText
+        volumeText.text_size = volumeText.size
+        volumeText.pos = width * 0.5 - (4 * height * 0.05 * 0.55), height * 0.01
+
+        durationSlider = self.ids.DurationSlider
+        durationSlider.max = ceil(video.duration)
+        durationSlider.y = height*0.1 if durationSlider.opacity else -50 - height/36
+        #durationSlider.cursor_image = "circle.png" if self.sliderTouched else "blank.png"
+        self.normalisedDuration = video.position / video.duration
+
+        rowsButton = self.ids.RowsButton
+
+        if not self.sliderTouched:
+            self.sliderAdjustCode = True
+            durationSlider.value = ceil(video.position)
+
+        guis = [title, self.ids.PlayPauseButton, self.ids.BackgroundButton, positionDurationText, volumeText, durationSlider, volumeSlider]
+
+        state = int(self.touchTime > time())
+        #durationSlider.disabled = state ^ 1
+        self.guiState = state
+
+        for gui in guis:
+            gui.opacity = state
+
+    def VideoInfoButtonClicked(self, instance, value=None):
+        video = self.ids.VideoWidget
+        durationSlider = self.ids.DurationSlider
+        moveVal = durationSlider.value_normalized
+
+        video.state = "pause"
+        video.source = instance.sourceLink
+        video.seek(moveVal, precise=True)
+        self.TogglePlayPause(bypass=True)
+
+    def touchButtonTouched(self):
+        title = self.ids.Title
+
+        self.touchTime = time() + (title.opacity ^ 1) * 5
+
+    def Slider_TouchUpDown(self, isDown):
+        self.sliderTouched = isDown
+
+    def SliderDurationValueChanged(self, instance, value):
+        video = self.ids.VideoWidget
+        durationSlider = self.ids.DurationSlider
+
+        if not self.sliderAdjustCode:
+            video.state = "pause"
+            self.TogglePlayPause(bypass=True)
+            video.seek(durationSlider.value_normalized, precise=True)
+            video.state = "play"
+            self.TogglePlayPause(bypass=True)
+
+            self.touchTime = time() + 5
+
+        self.sliderAdjustCode = False
+
+    def VolumeDurationValueChanged(self, instance, value):
+        video = self.ids.VideoWidget
+        video.volume = instance.value_normalized
+        self.touchTime = time() + 5
+
+    def RowClicked(self):
+        self.rowClicked = not self.rowClicked
+
+        width, height = Window.size
+
+        grid = self.ids.RowsGridLayout
+        grid.x = self.rowClicked and width*0.8 or width
+
+    def TogglePlayPause(self, bypass=False):
+        if not self.guiState and not bypass:
             self.touchButtonTouched()
 
         else:
-            self.play = not self.play
+            video = self.ids.VideoWidget
+
+            if not bypass:
+                self.play = not self.play
+            else:
+                self.play = video.state == "play"
 
             self.ids.PlayPauseButtonImage.source = not self.play and "PlayButtonW.png" or "PauseButtonW.png"
 
-            video = self.ids.VideoWidget
             video.state = self.play and "play" or "pause"
 
 
 class AniApp(App):
     def build(self):
+        self.title = 'ProjectAniPhoenix'
+
         windowManager = WindowManager()
         homeWindow = windowManager.ids.HomeWindow
         infoWindow = windowManager.ids.InfoWindow
@@ -681,7 +806,7 @@ class AniApp(App):
         # Clock.schedule_interval(infoWindow.updateVars, 1/30)
         # Clock.schedule_interval(homeWindow.pollSearchInput, 1/10)
 
-        Clock.schedule_interval(videoWindow.refresh, 1 / 30)
+        Clock.schedule_interval(videoWindow.refresh, 1 / 10)
 
         windowManager.transition = SlideTransition()
         # windowManager.current = "MainWindow"

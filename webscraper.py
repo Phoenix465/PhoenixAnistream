@@ -169,7 +169,7 @@ def extractVideoFiles(aniEpUrl):
         urlParsed = urlparse(url)
         return urlParsed.scheme, urlParsed.netloc, urlParsed.path.split("/")[1]
 
-    def recursiveGetVideoUrl(url, finished=False):
+    def recursiveGetVideoUrl(url, finished=False, finalIndexOverride=None):
         newUrl = url
         logging.info(f"Webscraper: Requesting {url}")
 
@@ -211,11 +211,15 @@ def extractVideoFiles(aniEpUrl):
                         functionMatches = [re.search("download_video\('(.*?)','(.*?)','(.*?)'\)", call) for call in functionCalls]
                         functionParams = [(match.group(1), match.group(2), match.group(3)) for match in functionMatches]
 
-                        functionParam = functionParams[-1]
+                        downloadInfo = [aTag.parent.parent.find_all("td")[1].text for aTag in aTags if aTag.get("onclick")]
+
+                        #functionParam = functionParams[finalIndexOverride or -1]
 
                         #print(functionParams)
 
-                        newUrl = f"{urlScheme}://{urlDomain}/dl?op=download_orig&id={functionParam[0]}&mode={functionParam[1]}&hash={functionParam[2]}"
+                        finished = True
+                        newUrl = [recursiveGetVideoUrl(f"{urlScheme}://{urlDomain}/dl?op=download_orig&id={functionParam[0]}&mode={functionParam[1]}&hash={functionParam[2]}") for functionParam in functionParams]
+                        newUrl = list(zip(newUrl, downloadInfo))
 
                     elif urlBasePath == "dl":
                         if not tree.find("b", {"class": "err"}):
@@ -287,11 +291,17 @@ def extractVideoFiles(aniEpUrl):
             if endUrl != "empty":
                 break
 
-        url = [url for url in urls if url != "empty"][0]
+        urlsFinal = []
+        for url in urls:
+            if url != "empty":
+                if isinstance(url, list):
+                    urlsFinal.extend(url)
+                else:
+                    urlsFinal.append(url)
 
-        logging.info(f"Webscraper: Final Url {url}")
+        logging.info(f"Webscraper: Final Urls {urlsFinal}")
 
-        return url
+        return urlsFinal
 
 
 if __name__ == "__main__":

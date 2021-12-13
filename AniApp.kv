@@ -28,6 +28,30 @@
         VideoWindow:
             id: VideoWindow
 
+<VideoInfo@Button>
+    background_color: (0, 0, 0, 0)
+    background_normal: ''
+
+    size: self.size
+    text_size: self.size
+    size_hint: None, None
+
+    font_size: 10
+
+    halign: "right"
+    valign: "middle"
+
+    sourceLink: ""
+
+    canvas.before:
+        Color:
+            rgba: 0.1, 0.1, 0.1, 0.5
+
+        Line:
+            points: self.pos[0], self.pos[1], self.pos[0]+self.size[0], self.pos[1]
+            width: 1
+
+
 <RoundedButton@Button>
     background_color: (0, 0, 0, 0)
     background_normal: ''
@@ -674,6 +698,15 @@
         pos: 0, 0
         size: root.width, root.height
 
+        id: BackgroundButton
+
+        background_color: (0, 0, 0, 0.2)
+        background_normal: ''
+
+    Button:
+        pos: 0, 0
+        size: root.width, root.height
+
         id: TouchButton
 
         background_color: (0, 0, 0, 0)
@@ -683,17 +716,126 @@
         on_press: root.touchButtonTouched()
 
     FloatLayout:
+        pos: 0, 0
         size: root.size
+        size_hint: None, None
 
         Label:
             id: Title
 
             text: root.title
             font_size: root.height*0.05
+            #size_hint: None, None
             #size: root.width, root.height*0.1
             text_size: self.size
             pos: root.width/72, root.height*0.925
-            halign: "left"
+
+        Label:
+            id: PositionDurationText
+
+            size: root.width, root.height*0.05*1.25
+            size_hint: None, None
+
+            text: root.positionDurationString
+            font_size: root.height*0.05
+
+            text_size: self.size
+            pos: root.height*0.01, root.height*0.01
+
+        Label:
+            id: VolumeText
+
+            size: root.width, root.height*0.05*1.25
+            size_hint: None, None
+
+            text: root.volumeString
+            font_size: root.height*0.05
+
+            text_size: self.size
+            pos: root.width*0.5 - (4*root.height*0.05*0.55), root.height*0.01
+
+    Slider:
+        id: DurationSlider
+
+        min: 0
+        max: 100
+        step: 1
+
+        orientation: 'horizontal'
+
+        pos: 0, root.height*0.05
+        size: root.width, root.height/36
+        value_track_width: root.height/(36*1.5)
+        value_track_color: 0.1, 0.1, 0.1, 0.8
+
+        #cursor_image: "circle.png"
+        #cursor_size: root.height/10, root.height/10
+
+        on_touch_down: if self.collide_point(*args[1].pos): root.Slider_TouchUpDown(True)
+        on_touch_up: if self.collide_point(*args[1].pos): root.Slider_TouchUpDown(False)
+
+        #canvas.after:
+        #    Color:
+        #        rgba: 0, 0, 0, 0.5
+
+        #    Rectangle:
+        #        pos: self.pos[0]+16, self.pos[1]
+        #        size: (self.size[0]-32)*root.normalisedDuration, self.size[1] * 0.6
+
+    Slider:
+        id: VolumeSlider
+
+        min: 0
+        max: 100
+        step: 1
+        value: 100
+
+        orientation: 'horizontal'
+
+        pos: root.width*0.5, root.height/36
+        size: root.width*0.5, root.height/36
+
+    Button:
+        id: RowsButton
+
+        size: root.height*0.1, root.height*0.1
+        pos: root.width - root.height*0.1, root.height * 0.9
+
+        background_normal: ""
+        background_color: (0, 0, 0, 0)
+        size_hint: None, None
+
+        on_press: root.RowClicked()
+
+        Image:
+            id: RowsButtonImage
+
+            pos: self.parent.pos
+            size: self.parent.size
+            size_hint: None, None
+            source: "rows.png"
+            mipmap: True
+
+        GridLayout:
+            id: RowsGridLayout
+
+            pos: root.width*0.8, root.height*0.9-self.minimum_height
+            size: root.width*0.2, self.minimum_height
+
+            orientation: "lr-tb"
+            size_hint: 1, None
+
+            height: self.minimum_height
+
+            cols: 1
+            padding: 0
+            spacing: 0, 0
+
+            VideoInfo:
+                id: PlaceHolderVideoInfo
+                text: "Placeholder"
+                size: root.parent.width*0.1, root.height*0.05
+
 
     AnchorLayout:
         anchor_x: "center"
@@ -719,3 +861,10 @@
                 size_hint: None, None
                 source: "PauseButtonW.png"
                 mipmap: True
+
+    AnchorLayout:
+        anchor_x: "left"
+        anchor_y: "bottom"
+
+        pos: 0, 0
+        size: root.width, root.height
