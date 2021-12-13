@@ -406,7 +406,7 @@ class HomeWindow(Widget):
 
 
 class InfoWindow(Widget):
-    aniName = StringProperty("Your Name")
+    aniName = StringProperty("")
 
     epWidgetWidth = NumericProperty(Window.size[1] * 0.1)
     epWidgetHeight = NumericProperty(Window.size[1] * 0.1)
@@ -686,7 +686,42 @@ class VideoWindow(Widget):
         self.title = episodeInstance.title
         self.name = episodeInstance.name
 
+        Window.bind(on_keyboard=self.Android_back_click)
+
         threading.Thread(target=loadVideo, args=(self, video, episodeInstance,), daemon=True).start()
+
+    def Android_back_click(self, window, key, *largs):
+        if key == 27:
+            if self.parent.manager.current == "VideoPlayer":
+                video = self.ids.VideoWidget
+                video.state = "stop"
+                video.source = ""
+                video.unload()
+
+                self.parent.manager.transition.direction = 'up'
+                self.parent.manager.current = "AniInfoWindow"
+
+                self.title = ""
+                self.name = ""
+                self.positionDurationString = "0"
+                self.volumeString = "0"
+
+                self.touchTime = time()
+                self.pauseTime = time()
+
+                self.play = True
+                self.guiState = 0
+
+                self.sliderTouched = False
+                self.sliderAdjustCode = True
+
+                self.normalisedDuration = 0
+
+                self.finalUrls = []
+
+                self.rowClicked = False
+
+            return True
 
     def refreshPositionSlider(self, *args):
         def convertTimeToDuration(time):
@@ -852,7 +887,7 @@ class AniApp(App):
     videoWindow = None
 
     def build(self):
-        self.title = 'ProjectAniPhoenix'
+        self.title = 'PhoenixAnistream'
 
         windowManager = WindowManager()
         homeWindow = windowManager.ids.HomeWindow
