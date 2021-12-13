@@ -269,6 +269,7 @@ def extractVideoFiles(aniEpUrl):
 
     urlRequest = requests.get(aniEpUrl, headers=headers)
     baseUrl = r"https://animedao.to"
+    logging.info(f"Webscraper: Scanning {aniEpUrl}")
 
     if urlRequest.status_code == 200:
         content = urlRequest.content
@@ -278,7 +279,8 @@ def extractVideoFiles(aniEpUrl):
         scripts = tree.find_all("script")
         scripts = [script.text for script in scripts if "/redirect/" in script.text or "playdrive.xyz" in script.text]
 
-        iframes = [re.search("<iframe (.*?)</iframe>", script).group() for script in scripts]
+        iframes = [re.search("<iframe (.*?)</iframe>", script) for script in scripts]
+        iframes = [iframeRe.group() for iframeRe in iframes if iframeRe]
 
         sources = [re.search(r'src\s*=\s*"(.+?)"', iframe).group(1) for iframe in iframes]
         sources = ["redirect" in source and baseUrl + source or source for source in sources]

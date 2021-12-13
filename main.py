@@ -1,15 +1,20 @@
+import atexit
+import logging
 import queue
 import threading
 
 import kivy
+from kivy.storage.jsonstore import JsonStore
 from kivy.uix.button import Button
 from kivy.uix.textinput import TextInput
 
 kivy.require('2.0.0')  # replace with your current kivy version !
 
 from kivy.core.window import Window
-
 Window.size = (1280 / 2, 720 / 2)
+
+from kivy.config import Config
+Config.set('kivy', 'exit_on_escape', '0')
 
 from kivy.app import App
 from kivy.uix.widget import Widget
@@ -31,7 +36,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import webscraper
 import sys
-from time import time
+from time import time, sleep
 
 # Back up the reference to the exceptionhook
 sys._excepthook = sys.excepthook
@@ -47,6 +52,13 @@ def my_exception_hook(exctype, value, traceback):
 
 # Set the exception hook to our wrapping function
 sys.excepthook = my_exception_hook
+
+
+def GetDataStore(DataStore, key, default=None):
+    if key in DataStore:
+        return DataStore[key]
+    else:
+        return default
 
 
 class AniWidget(RelativeLayout):
@@ -619,6 +631,8 @@ class VideoWindow(Widget):
 
     touchTime = time()
     touchDuration = 5
+    pauseTime = time()
+    pauseTimeOutRefresh = 300
 
     play = True
     guiState = 0
@@ -629,8 +643,6 @@ class VideoWindow(Widget):
     normalisedDuration = NumericProperty(0)
 
     finalUrls = []
-    currentUrlData = None
-    currentUrlIndex = None
 
     rowClicked = False
 
@@ -638,18 +650,27 @@ class VideoWindow(Widget):
     videoInfoWidth = NumericProperty(0)
 
     def initiate(self, episodeInstance):
-        def loadVideo(mainWidget, videoWidget, view):
-            finalUrls = webscraper.extractVideoFiles(view)
+        def loadVideo(mainWidget, videoWidget, episodeInstance):
+            finalUrls = webscraper.extractVideoFiles(episodeInstance.view)
             mainWidget.finalUrls = finalUrls
-            mainWidget.currentUrlData = mainWidget.finalUrls[-1]
-            mainWidget.currentUrlIndex = len(finalUrls) - 1
-            videoWidget.source = mainWidget.currentUrlData[0]
+            videoWidget.source = mainWidget.finalUrls[-1][0]
             videoWidget.state = "play"
 
             for data in finalUrls:
                 newWidget = VideoInfo(text=data[1], size=(self.videoInfoWidth, self.videoInfoHeight), sourceLink=data[0])
                 newWidget.bind(on_press=self.VideoInfoButtonClicked)
                 self.ids.RowsGridLayout.add_widget(newWidget)
+
+            while videoWidget.duration == -1 or videoWidget.duration == 1:
+                sleep(0.1)
+
+            storedData = JsonStore("data.json")
+
+            data = GetDataStore(storedData, "ResumeData", default={})
+            timePos = data.get(episodeInstance.title, None)
+
+            if timePos:
+                mainWidget.TogglePlayPause(bypass=True, forceRefresh=True, overridePlayPosition=max(timePos-5, 0))
 
             #mainWidget.touchTime = time() + mainWidget.touchDuration
 
@@ -664,7 +685,7 @@ class VideoWindow(Widget):
         self.title = episodeInstance.title
         self.name = episodeInstance.name
 
-        threading.Thread(target=loadVideo, args=(self, video, episodeInstance.view,), daemon=True).start()
+        threading.Thread(target=loadVideo, args=(self, video, episodeInstance,), daemon=True).start()
 
     def refresh(self, *args):
         def convertTimeToDuration(time):
@@ -706,11 +727,14 @@ class VideoWindow(Widget):
         #durationSlider.cursor_image = "circle.png" if self.sliderTouched else "blank.png"
         self.normalisedDuration = video.position / video.duration
 
-        rowsButton = self.ids.RowsButton
+        if self.play:
+            self.pauseTime = time()
 
         if not self.sliderTouched:
             self.sliderAdjustCode = True
             durationSlider.value = ceil(video.position)
+
+        self.RowClicked(bypass=True)
 
         guis = [title, self.ids.PlayPauseButton, self.ids.BackgroundButton, positionDurationText, volumeText, durationSlider, volumeSlider]
 
@@ -722,14 +746,7 @@ class VideoWindow(Widget):
             gui.opacity = state
 
     def VideoInfoButtonClicked(self, instance, value=None):
-        video = self.ids.VideoWidget
-        durationSlider = self.ids.DurationSlider
-        moveVal = durationSlider.value_normalized
-
-        video.state = "pause"
-        video.source = instance.sourceLink
-        video.seek(moveVal, precise=True)
-        self.TogglePlayPause(bypass=True)
+        self.TogglePlayPause(bypass=True, forceRefresh=True, overrideSource=instance.sourceLink)
 
     def touchButtonTouched(self):
         title = self.ids.Title
@@ -759,20 +776,22 @@ class VideoWindow(Widget):
         video.volume = instance.value_normalized
         self.touchTime = time() + 5
 
-    def RowClicked(self):
-        self.rowClicked = not self.rowClicked
+    def RowClicked(self, bypass=False):
+        if not bypass:
+            self.rowClicked = not self.rowClicked
 
         width, height = Window.size
 
         grid = self.ids.RowsGridLayout
         grid.x = self.rowClicked and width*0.8 or width
 
-    def TogglePlayPause(self, bypass=False):
+    def TogglePlayPause(self, bypass=False, forceRefresh=False, overrideSource=None, overridePlayPosition=None):
         if not self.guiState and not bypass:
             self.touchButtonTouched()
 
         else:
             video = self.ids.VideoWidget
+            oldPlay = self.play
 
             if not bypass:
                 self.play = not self.play
@@ -783,8 +802,36 @@ class VideoWindow(Widget):
 
             video.state = self.play and "play" or "pause"
 
+            if (self.play and not oldPlay and time() > self.pauseTime + self.pauseTimeOutRefresh) or forceRefresh:
+                self.pauseTime = time()
+
+                logging.info(f"Reloader: Reloading Source")
+
+                durationSlider = self.ids.DurationSlider
+                currentNormalValue = durationSlider.value_normalized
+                if overridePlayPosition is not None:
+                    currentNormalValue = overridePlayPosition / video.duration
+
+                oldSource = overrideSource or video.source
+                
+                video.state = "pause"
+                video.source = ""
+                video.source = oldSource
+                video.state = "play"
+
+                def seekNormalTime(seekVal):
+                    sleep(1)
+                    logging.info(f"Reloader: Seeking to {seekVal}")
+
+                    video.seek(seekVal, precise=True)
+                    self.sliderTouched = False
+
+                threading.Thread(target=seekNormalTime, args=(currentNormalValue,), daemon=True).start()
+
 
 class AniApp(App):
+    videoWindow = None
+
     def build(self):
         self.title = 'ProjectAniPhoenix'
 
@@ -792,6 +839,7 @@ class AniApp(App):
         homeWindow = windowManager.ids.HomeWindow
         infoWindow = windowManager.ids.InfoWindow
         videoWindow = windowManager.ids.VideoWindow
+        self.videoWindow = videoWindow
         homeWindow.infoWindowWidget = infoWindow
         infoWindow.videoWindow = videoWindow
         # homeWindow = HomeWindow()
@@ -815,11 +863,35 @@ class AniApp(App):
         return windowManager
 
 
+def ProgramClosed(app):
+    VideoWindow = app.videoWindow
+    Title = VideoWindow.title
+    PlayingPosition = VideoWindow.ids.VideoWidget.position
+    Duration = VideoWindow.ids.VideoWidget.duration
+
+    storedData = JsonStore("data.json")
+
+    if PlayingPosition != Duration:
+        data = GetDataStore(storedData, "ResumeData", default={})
+        data[Title] = PlayingPosition
+
+        storedData["ResumeData"] = data
+    else:
+        data = GetDataStore(storedData, "ResumeData", default={})
+
+        if Title in data:
+            del data[Title]
+
+        storedData["ResumeData"] = data
+
+
 if __name__ == '__main__':
     try:
         mkdir("cache")
-
     except:
         pass
 
-    AniApp().run()
+    app = AniApp()
+
+    atexit.register(ProgramClosed, app)
+    app.run()
