@@ -860,9 +860,15 @@
                 source: "PauseButtonW.png"
                 mipmap: True
 
-    AnchorLayout:
-        anchor_x: "left"
-        anchor_y: "bottom"
+    RoundedButton:
+        id: PositionSliderInfo
 
-        pos: 0, 0
-        size: root.width, root.height
+        back_color: 0.2, 0.2, 0.2, 0.5
+        border_radius: [5, 5, 5, 5]
+
+
+        pos: root.width*2, root.height*2
+        size: self.texture_size[0] + 10, self.texture_size[1] + 10
+        font_size: root.height/18
+        text: ""
+

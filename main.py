@@ -687,6 +687,23 @@ class VideoWindow(Widget):
 
         threading.Thread(target=loadVideo, args=(self, video, episodeInstance,), daemon=True).start()
 
+    def refreshPositionSlider(self, *args):
+        def convertTimeToDuration(time):
+            return f"{time // 3600:0>2}:{time // 60 - (time // 3600) * 60:0>2}:{time % 60:0>2}" if time >= 3600 else f"{time // 60:0>2}:{time % 60:0>2}"
+
+        width, height = Window.size
+
+        durationSlider = self.ids.DurationSlider
+        positionSliderInfo = self.ids.PositionSliderInfo
+
+        if self.sliderTouched:
+            positionSliderInfo.text = convertTimeToDuration(int(durationSlider.value))
+            positionSliderInfo.x = durationSlider.value_pos[0] - positionSliderInfo.width/2
+            positionSliderInfo.y = durationSlider.value_pos[1] + durationSlider.padding
+
+        else:
+            positionSliderInfo.pos = (width*2, height*2)
+
     def refresh(self, *args):
         def convertTimeToDuration(time):
             return f"{time // 3600:0>2}:{time // 60 - (time // 3600) * 60:0>2}:{time % 60:0>2}" if time >= 3600 else f"{time // 60:0>2}:{time % 60:0>2}"
@@ -735,6 +752,7 @@ class VideoWindow(Widget):
             durationSlider.value = ceil(video.position)
 
         self.RowClicked(bypass=True)
+        self.TogglePlayPause(bypass=True)
 
         guis = [title, self.ids.PlayPauseButton, self.ids.BackgroundButton, positionDurationText, volumeText, durationSlider, volumeSlider]
 
@@ -855,6 +873,7 @@ class AniApp(App):
         # Clock.schedule_interval(homeWindow.pollSearchInput, 1/10)
 
         Clock.schedule_interval(videoWindow.refresh, 1 / 10)
+        Clock.schedule_interval(videoWindow.refreshPositionSlider, 1 / 60)
 
         windowManager.transition = SlideTransition()
         # windowManager.current = "MainWindow"
