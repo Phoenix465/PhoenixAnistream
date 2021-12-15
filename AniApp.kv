@@ -891,3 +891,21 @@
         font_size: root.height/18
         text: ""
 
+    Button:
+        id: Lacking
+
+        size: root.width, root.height
+        pos: root.width*2, root.height*2
+
+        background_normal: ""
+        background_down : ""
+        background_color: (0, 0, 0, 1)
+
+        Image:
+            id: LackingImage
+
+            pos: self.parent.pos
+            size: self.parent.size
+            size_hint: None, None
+            source: "lacking.png"
+            mipmap: True

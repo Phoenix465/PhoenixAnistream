@@ -681,6 +681,9 @@ class VideoWindow(Widget):
     videoInfoHeight = NumericProperty(0)
     videoInfoWidth = NumericProperty(0)
 
+    lackingEnabled = False
+    isLacking = False
+
     def initiate(self, episodeInstance):
         def loadVideo(mainWidget, videoWidget, episodeInstance):
             def episodeError(instance):
@@ -694,7 +697,9 @@ class VideoWindow(Widget):
 
                 if len(mainWidget.finalUrls) > 0:
                     videoWidget.source = mainWidget.finalUrls[-1][0]
-                    videoWidget.state = "play"
+
+                    if not self.isLacking:
+                        videoWidget.state = "play"
 
                     for data in finalUrls:
                         newWidget = VideoInfo(text=data[1], size=(self.videoInfoWidth, self.videoInfoHeight), sourceLink=data[0])
@@ -709,7 +714,7 @@ class VideoWindow(Widget):
                     data = GetDataStore(storedData, "ResumeData", default={})
                     timePos = data.get(episodeInstance.title, None)
 
-                    if timePos:
+                    if timePos and not self.isLacking:
                         mainWidget.TogglePlayPause(bypass=True, forceRefresh=True, overridePlayPosition=max(timePos-5, 0))
 
                     # mainWidget.touchTime = time() + mainWidget.touchDuration
@@ -742,13 +747,26 @@ class VideoWindow(Widget):
         self.title = episodeInstance.title
         self.name = episodeInstance.name
 
+        storedData = JsonStore("data.json")
+        if "Settings" not in storedData:
+            storedData["Settings"] = {}
+
+        data = GetDataStore(storedData, "Settings", default={})
+
+        if "LackingEnabled" not in data:
+            storedData["Settings"] = {"LackingEnabled": "false"}
+            data = GetDataStore(storedData, "Settings", default={})
+
+        if data.get("LackingEnabled") == "true":
+            self.lackingEnabled = True
+
         Window.bind(on_keyboard=self.Android_back_click)
 
         threading.Thread(target=loadVideo, args=(self, video, episodeInstance,), daemon=True).start()
 
     def Android_back_click(self, window, key, *largs):
-        if key == 27:
-            if self.parent.manager.current == "VideoPlayer":
+        if self.parent.manager.current == "VideoPlayer":
+            if key == 27:
                 self.BackButtonClicked(bypass=True)
 
                 video = self.ids.VideoWidget
@@ -779,7 +797,15 @@ class VideoWindow(Widget):
 
                 self.rowClicked = False
 
-            return True
+                return True
+
+            elif key == 110:
+                if self.lackingEnabled:
+                    self.isLacking = not self.isLacking
+
+                    if self.isLacking:
+                        self.play = False
+                        self.TogglePlayPause(bypass=True, noReload=True)
 
     def BackButtonClicked(self, *args, bypass=False):
         if self.ids.BackButton.opacity or bypass:
@@ -807,7 +833,6 @@ class VideoWindow(Widget):
         else:
             self.touchButtonTouched()
 
-
     def refreshPositionSlider(self, *args):
         def convertTimeToDuration(time):
             return f"{time // 3600:0>2}:{time // 60 - (time // 3600) * 60:0>2}:{time % 60:0>2}" if time >= 3600 else f"{time // 60:0>2}:{time % 60:0>2}"
@@ -830,6 +855,12 @@ class VideoWindow(Widget):
             return f"{time // 3600:0>2}:{time // 60 - (time // 3600) * 60:0>2}:{time % 60:0>2}" if time >= 3600 else f"{time // 60:0>2}:{time % 60:0>2}"
 
         width, height = Window.size
+
+        if self.lackingEnabled:
+            self.ids.Lacking.pos = (0, 0) if self.isLacking else (width*2, height*2)
+            
+            if self.isLacking:
+                self.ids.VideoWidget.state = "pause"
 
         self.videoInfoWidth = width * 0.2
         self.videoInfoHeight = height/30 * 2
@@ -924,7 +955,7 @@ class VideoWindow(Widget):
         grid = self.ids.RowsGridLayout
         grid.x = self.rowClicked and width*0.8 or width
 
-    def TogglePlayPause(self, bypass=False, forceRefresh=False, overrideSource=None, overridePlayPosition=None):
+    def TogglePlayPause(self, bypass=False, forceRefresh=False, overrideSource=None, overridePlayPosition=None, noReload=False):
         if not self.guiState and not bypass:
             self.touchButtonTouched()
 
@@ -941,7 +972,7 @@ class VideoWindow(Widget):
 
             video.state = self.play and "play" or "pause"
 
-            if (self.play and not oldPlay and time() > self.pauseTime + self.pauseTimeOutRefresh) or forceRefresh:
+            if ((self.play and not oldPlay and time() > self.pauseTime + self.pauseTimeOutRefresh) or forceRefresh) and not noReload:
                 self.pauseTime = time()
 
                 logging.info(f"Reloader: Reloading Source")
