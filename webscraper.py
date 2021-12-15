@@ -190,13 +190,23 @@ def extractVideoFiles(aniEpUrl):
 
                 elif urlDomain == "gogoplay1.com":
                     if urlBasePath == "streaming.php":
-                        links = tree.find_all("li", {"class": "linkserver"})
-                        links = [link["data-video"] for link in links if link["data-video"]]
+                        #links = tree.find_all("li", {"class": "linkserver"})
+                        #links = [link["data-video"] for link in links if link["data-video"]]
+                        #newUrl = links[0]
 
-                        newUrl = links[0]
+                        pageId = endUrl.replace(r"https://gogoplay1.com/streaming.php?id=", "")
+                        newUrl = f"https://gogoplay1.com/download?id={pageId}&title=&typesub="
+
                     elif urlBasePath == "embedplus":
-                        link = re.search("https://gogoplay(.*?)typesub=", urlContent.decode("utf-8")).group()
-                        newUrl = link
+                        link = re.search("https://gogoplay(.*?)typesub=", urlContent.decode("utf-8"))
+
+                        if not link:
+                            iframes = tree.find_all("iframe", {"id": "embedvideo"})
+
+                            if len(iframes) > 0:
+                                newUrl = iframes[0]["src"]
+                        else:
+                            newUrl = link.group()
 
                     elif urlBasePath == "download":
                         aLinks = tree.find_all("a", {"target": "_blank"})

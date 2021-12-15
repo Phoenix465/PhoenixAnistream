@@ -15,6 +15,7 @@ from kivy.core.window import Window
 
 from kivy.config import Config
 Config.set('kivy', 'exit_on_escape', '0')
+Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
 
 from kivy.app import App
 from kivy.uix.widget import Widget
