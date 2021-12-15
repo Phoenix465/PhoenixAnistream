@@ -2,10 +2,12 @@ import atexit
 import logging
 import queue
 import threading
+import webbrowser
 
 import kivy
 from kivy.storage.jsonstore import JsonStore
 from kivy.uix.button import Button
+from kivy.uix.popup import Popup
 from kivy.uix.textinput import TextInput
 
 kivy.require('2.0.0')  # replace with your current kivy version !
@@ -346,6 +348,34 @@ class HomeWindow(Widget):
                     self.remove_widget(self.ScrollSearchGrid)
 
     # --- Callback Methods ---
+    def AboutButtonClicked(self):
+        size = Window.size
+        
+        button = Button(
+            text='Phoenix Anistream is an anime streaming app that allows users to search and watch anime. There are no ads and interruptions. Have Fun :)'
+                 '\n\n[color=#8AB4F8][i][u][ref=https://discord.gg/MycXAEfcRr]Phoenix Anistream Support Server[/ref][/u][/i][/color]'
+                 '\n\nClick Button To Close',
+            markup=True,
+            font_size=size[1]/22
+            # size_hint=(0.6, 1),
+        )
+
+        def refPress(instance, val):
+            webbrowser.open(val)
+
+        button.bind(on_ref_press=refPress)
+
+        def setButtonTextSize(instance, size):
+            instance.text_size[0] = size[0] * 0.9
+
+        button.bind(size=setButtonTextSize)
+        popup = Popup(title='About',
+                      content=button,
+                      size_hint=(0.8, 0.8),
+                      auto_dismiss=True)
+        button.bind(on_release=popup.dismiss)
+        popup.open()
+
     def SearchButtonToggle(self, skip=False):
         if not skip:
             self.searchToggle = not self.searchToggle
@@ -653,28 +683,53 @@ class VideoWindow(Widget):
 
     def initiate(self, episodeInstance):
         def loadVideo(mainWidget, videoWidget, episodeInstance):
+            def episodeError(instance):
+                instance.mainWidget.Android_back_click(None, 27)
+
             finalUrls = webscraper.extractVideoFiles(episodeInstance.view)
-            mainWidget.finalUrls = finalUrls
-            videoWidget.source = mainWidget.finalUrls[-1][0]
-            videoWidget.state = "play"
 
-            for data in finalUrls:
-                newWidget = VideoInfo(text=data[1], size=(self.videoInfoWidth, self.videoInfoHeight), sourceLink=data[0])
-                newWidget.bind(on_press=self.VideoInfoButtonClicked)
-                self.ids.RowsGridLayout.add_widget(newWidget)
+            # Exiting before data is received
+            if mainWidget.title != "":
+                mainWidget.finalUrls = finalUrls
 
-            while videoWidget.duration == -1 or videoWidget.duration == 1:
-                sleep(0.1)
+                if len(mainWidget.finalUrls) > 0:
+                    videoWidget.source = mainWidget.finalUrls[-1][0]
+                    videoWidget.state = "play"
 
-            storedData = JsonStore("data.json")
+                    for data in finalUrls:
+                        newWidget = VideoInfo(text=data[1], size=(self.videoInfoWidth, self.videoInfoHeight), sourceLink=data[0])
+                        newWidget.bind(on_press=self.VideoInfoButtonClicked)
+                        self.ids.RowsGridLayout.add_widget(newWidget)
 
-            data = GetDataStore(storedData, "ResumeData", default={})
-            timePos = data.get(episodeInstance.title, None)
+                    while videoWidget.duration == -1 or videoWidget.duration == 1:
+                        sleep(0.1)
 
-            if timePos:
-                mainWidget.TogglePlayPause(bypass=True, forceRefresh=True, overridePlayPosition=max(timePos-5, 0))
+                    storedData = JsonStore("data.json")
 
-            #mainWidget.touchTime = time() + mainWidget.touchDuration
+                    data = GetDataStore(storedData, "ResumeData", default={})
+                    timePos = data.get(episodeInstance.title, None)
+
+                    if timePos:
+                        mainWidget.TogglePlayPause(bypass=True, forceRefresh=True, overridePlayPosition=max(timePos-5, 0))
+
+                    # mainWidget.touchTime = time() + mainWidget.touchDuration
+                else:
+                    button = Button(
+                        text='Please Re-Search this Anime, If Problems Still Occur, Please Contact Me on the ABOUT Section',
+                        #size_hint=(0.6, 1),
+                    )
+                    def setButtonTextSize(instance, size):
+                        instance.text_size[0] = size[0]*0.8
+
+                    button.bind(size=setButtonTextSize)
+                    popup = Popup(title='Failed to Load Episode',
+                                  content=button,
+                                  size_hint=(0.8, 0.8),
+                                  auto_dismiss=False)
+                    popup.mainWidget = mainWidget
+                    popup.bind(on_dismiss=episodeError)
+                    button.bind(on_release=popup.dismiss)
+                    popup.open()
 
         video = self.ids.VideoWidget
         # video.state = "play"
@@ -694,6 +749,8 @@ class VideoWindow(Widget):
     def Android_back_click(self, window, key, *largs):
         if key == 27:
             if self.parent.manager.current == "VideoPlayer":
+                self.BackButtonClicked(bypass=True)
+
                 video = self.ids.VideoWidget
                 video.state = "stop"
                 video.source = ""
@@ -723,6 +780,33 @@ class VideoWindow(Widget):
                 self.rowClicked = False
 
             return True
+
+    def BackButtonClicked(self, *args, bypass=False):
+        if self.ids.BackButton.opacity or bypass:
+            Title = self.title
+            PlayingPosition = self.ids.VideoWidget.position
+            Duration = self.ids.VideoWidget.duration
+
+            storedData = JsonStore("data.json")
+
+            if PlayingPosition != Duration:
+                data = GetDataStore(storedData, "ResumeData", default={})
+                data[Title] = PlayingPosition
+
+                storedData["ResumeData"] = data
+            else:
+                data = GetDataStore(storedData, "ResumeData", default={})
+
+                if Title in data:
+                    del data[Title]
+
+                storedData["ResumeData"] = data
+
+            if not bypass:
+                self.Android_back_click(None, 27)
+        else:
+            self.touchButtonTouched()
+
 
     def refreshPositionSlider(self, *args):
         def convertTimeToDuration(time):
@@ -791,7 +875,7 @@ class VideoWindow(Widget):
         self.RowClicked(bypass=True)
         self.TogglePlayPause(bypass=True)
 
-        guis = [title, self.ids.PlayPauseButton, self.ids.BackgroundButton, positionDurationText, volumeText, durationSlider, volumeSlider]
+        guis = [title, self.ids.PlayPauseButton, self.ids.BackButton, self.ids.BackgroundButton, positionDurationText, volumeText, durationSlider, volumeSlider]
 
         state = int(self.touchTime > time())
         #durationSlider.disabled = state ^ 1

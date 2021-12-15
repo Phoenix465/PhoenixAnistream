@@ -164,7 +164,7 @@ def GetAniData(aniUrl):
     return None, None, None, None
 
 
-def extractVideoFiles(aniEpUrl):
+def extractVideoFiles(aniEpUrl, repeat=5, currentRepeat=0):
     def getUrlProtocolDomain(url):
         urlParsed = urlparse(url)
         return urlParsed.scheme, urlParsed.netloc, urlParsed.path.split("/")[1]
@@ -277,11 +277,14 @@ def extractVideoFiles(aniEpUrl):
 
         return finished and newUrl or recursiveGetVideoUrl(newUrl)
 
+    #aniEpUrl = r"https://animedao.to/view/431131313/"
     urlRequest = requests.get(aniEpUrl, headers=headers)
     baseUrl = r"https://animedao.to"
     logging.info(f"Webscraper: Scanning {aniEpUrl}")
 
     if urlRequest.status_code == 200:
+        logging.info(f"Webscraper: Scanning - In Progress")
+
         content = urlRequest.content
         # print(getsizeof(content))
 
@@ -314,6 +317,17 @@ def extractVideoFiles(aniEpUrl):
         logging.info(f"Webscraper: Final Urls {urlsFinal}")
 
         return urlsFinal
+
+    else:
+        logging.info(f"Webscraper: Scanning - Failed")
+
+        if currentRepeat <= repeat:
+            logging.info(f"Webscraper: Repeating at {currentRepeat+1}, Max {repeat}")
+
+            return extractVideoFiles(aniEpUrl, repeat=repeat, currentRepeat=currentRepeat+1)
+
+        logging.info(f"Webscraper: Scanning - Failed, View URL is broken")
+        return []
 
 
 if __name__ == "__main__":

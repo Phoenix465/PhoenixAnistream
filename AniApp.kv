@@ -387,18 +387,18 @@
             mipmap: True
 
     Button:
-        opacity: 0
-
         background_normal: ""
         background_color: (0, 0, 0, 0)
         pos: root.width*0.95 - (root.height*0.1+2), root.height*(0.9 + 0.01)
         size: root.height*0.08, root.height*0.08
 
+        on_press: root.AboutButtonClicked()
+
         Image:
             pos: self.parent.pos
             size: self.parent.size
             size_hint: None, None
-            source: "bookmark.png"
+            source: "about.png"
             mipmap: True
 
     Button:
@@ -715,6 +715,23 @@
 
         on_press: root.touchButtonTouched()
 
+    Button:
+        id: BackButton
+
+        background_normal: ""
+        background_color: (0, 0, 0, 0)
+        pos: root.width*0.02, root.height*(0.9 + 0.01)
+        size: root.height*0.08, root.height*0.08
+
+        on_press: root.BackButtonClicked()
+
+        Image:
+            pos: self.parent.pos
+            size: self.parent.size
+            size_hint: None, None
+            source: "backarrow.png"
+            mipmap: True
+
     FloatLayout:
         pos: 0, 0
         size: root.size
@@ -728,7 +745,7 @@
             #size_hint: None, None
             #size: root.width, root.height*0.1
             text_size: self.size
-            pos: root.width/72, root.height*0.925
+            pos: root.width*0.085, root.height*0.925
 
         Label:
             id: PositionDurationText
