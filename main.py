@@ -23,12 +23,14 @@ from kivy.app import App
 from kivy.uix.widget import Widget
 from kivy.uix.relativelayout import RelativeLayout
 from kivy.properties import NumericProperty, BooleanProperty, StringProperty
+from kivy.utils import platform
 from kivy.uix.screenmanager import ScreenManager, SlideTransition
 from kivy.animation import Animation
 from kivy.clock import Clock
 from kivy.clock import mainthread
 import os.path as path
 from os import mkdir
+from KivyOnTop import register_topmost, unregister_topmost
 
 # from kivy.loader import Loader
 # Loader.loading_image = "loading.gif"
@@ -664,7 +666,7 @@ class VideoWindow(Widget):
     touchTime = time()
     touchDuration = 5
     pauseTime = time()
-    pauseTimeOutRefresh = 300
+    pauseTimeOutRefresh = 50
 
     play = True
     guiState = 0
@@ -683,6 +685,9 @@ class VideoWindow(Widget):
 
     lackingEnabled = False
     isLacking = False
+    
+    pinned = False
+    appTitle = ""
 
     def initiate(self, episodeInstance):
         def loadVideo(mainWidget, videoWidget, episodeInstance):
@@ -797,6 +802,10 @@ class VideoWindow(Widget):
 
                 self.rowClicked = False
 
+                if platform == "win":
+                    self.pinned = False
+                    unregister_topmost(Window, self.appTitle)
+
                 return True
 
             elif key == 110:
@@ -833,6 +842,23 @@ class VideoWindow(Widget):
         else:
             self.touchButtonTouched()
 
+    def PinToggle(self, reloadImage=False):
+        if not reloadImage:
+            if self.ids.PinButton.opacity and platform == "win":
+                self.pinned = not self.pinned
+
+                self.ids.PinImage.source = self.pinned and "pinC.png" or "pin.png"
+
+                if self.pinned:
+                    register_topmost(Window, self.appTitle)
+                else:
+                    unregister_topmost(Window, self.appTitle)
+            else:
+                self.touchButtonTouched()
+
+        if reloadImage:
+            self.ids.PinImage.source = self.pinned and "pinC.png" or "pin.png"
+
     def refreshPositionSlider(self, *args):
         def convertTimeToDuration(time):
             return f"{time // 3600:0>2}:{time // 60 - (time // 3600) * 60:0>2}:{time % 60:0>2}" if time >= 3600 else f"{time // 60:0>2}:{time % 60:0>2}"
@@ -855,6 +881,8 @@ class VideoWindow(Widget):
             return f"{time // 3600:0>2}:{time // 60 - (time // 3600) * 60:0>2}:{time % 60:0>2}" if time >= 3600 else f"{time // 60:0>2}:{time % 60:0>2}"
 
         width, height = Window.size
+
+        self.PinToggle(reloadImage=True)
 
         if self.lackingEnabled:
             self.ids.Lacking.pos = (0, 0) if self.isLacking else (width*2, height*2)
@@ -907,6 +935,8 @@ class VideoWindow(Widget):
         self.TogglePlayPause(bypass=True)
 
         guis = [title, self.ids.PlayPauseButton, self.ids.BackButton, self.ids.BackgroundButton, positionDurationText, volumeText, durationSlider, volumeSlider]
+        if platform == "win":
+            guis.append(self.ids.PinButton)
 
         state = int(self.touchTime > time())
         #durationSlider.disabled = state ^ 1
@@ -1004,11 +1034,13 @@ class AniApp(App):
 
     def build(self):
         self.title = 'PhoenixAnistream'
+        Window.set_title(self.title)
 
         windowManager = WindowManager()
         homeWindow = windowManager.ids.HomeWindow
         infoWindow = windowManager.ids.InfoWindow
         videoWindow = windowManager.ids.VideoWindow
+        videoWindow.appTitle = self.title
         self.videoWindow = videoWindow
         homeWindow.infoWindowWidget = infoWindow
         infoWindow.videoWindow = videoWindow

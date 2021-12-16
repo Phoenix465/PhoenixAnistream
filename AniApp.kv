@@ -732,6 +732,25 @@
             source: "backarrow.png"
             mipmap: True
 
+    Button:
+        id: PinButton
+        opacity: 0
+        background_normal: ""
+        background_color: (0, 0, 0, 0)
+        pos: root.width-self.size[0], root.height*0.5 - (self.size[1]/2)
+        size: root.height*0.08, root.height*0.08
+
+        on_press: root.PinToggle()
+
+        Image:
+            id: PinImage
+
+            pos: self.parent.pos
+            size: self.parent.size
+            size_hint: None, None
+            source: "pin.png"
+            mipmap: True
+
     FloatLayout:
         pos: 0, 0
         size: root.size
