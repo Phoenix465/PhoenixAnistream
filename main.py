@@ -17,7 +17,9 @@ from kivy.core.window import Window
 
 from kivy.config import Config
 Config.set('kivy', 'exit_on_escape', '0')
+Config.set('kivy', 'window_icon', 'PhoenixAniStream.png')
 Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
+
 
 from kivy.app import App
 from kivy.uix.widget import Widget
@@ -1034,6 +1036,7 @@ class AniApp(App):
 
     def build(self):
         self.title = 'PhoenixAnistream'
+        self.icon = r".\PhoenixAniStream.ico"
         Window.set_title(self.title)
 
         windowManager = WindowManager()
