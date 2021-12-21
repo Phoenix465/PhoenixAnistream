@@ -313,12 +313,16 @@ class HomeWindow(Widget):
             updateThread.start()
             threading.Thread(target=self.runSearchQueue, daemon=True).start()
 
-        searchData = webscraper.SearchDataAnimeDaoTo(searchQuery)
-        genreData = webscraper.GetAniGenres(searchData)
         gridLayout = self.ids.SearchGridLayout
         gridLayout.clear_widgets()
 
-        addWidgets(searchData, genreData)
+        searchData = webscraper.SearchDataAnimeDaoTo(searchQuery)
+        genreData = webscraper.GetAniGenres(searchData)
+
+        if self.searchQueue.qsize() > 0:
+            threading.Thread(target=self.runSearchQueue, daemon=True).start()
+        else:
+            addWidgets(searchData, genreData)
 
     def searchInputChanged(self, *args, reload=False):
         searchBox = self.ids.TextInputSearchBox
@@ -556,13 +560,17 @@ class InfoWindow(Widget):
         def loadAniData(url):
             data = webscraper.GetAniData(aniUrl)
 
+            episodeGridLayout = self.ids.EpisodeGridLayout
+            episodeGridLayout.clear_widgets()
+
+            if not any(data):
+                return
+
             self.aniName = data[0]
 
             descriptionId = self.ids.description
             descriptionId.textDescription = data[2]
             self.refreshDescription()
-
-            episodeGridLayout = self.ids.EpisodeGridLayout
 
             if self.placeholderExists:
                 episodePlaceHolder = self.ids.EpisodePlaceHolder
@@ -622,8 +630,6 @@ class InfoWindow(Widget):
                         episodeData["priority"] = f"{mode}.{str(int(nameEpFilter or '0')):>05}"
 
                         epData.append(episodeData)
-
-            episodeGridLayout.clear_widgets()
 
             for episodeData in sorted(epData, key=lambda data: data["priority"]):
                 # print(episodeData)
@@ -698,6 +704,27 @@ class VideoWindow(Widget):
 
             finalUrls = webscraper.extractVideoFiles(episodeInstance.view)
 
+            if not len(finalUrls):
+                button = Button(
+                    text='Failed to get Video Data, Please Check your Connection',
+                    # size_hint=(0.6, 1),
+                )
+
+                def setButtonTextSize(instance, size):
+                    instance.text_size[0] = size[0] * 0.8
+
+                button.bind(size=setButtonTextSize)
+                popup = Popup(title='Failed to Load Episode',
+                              content=button,
+                              size_hint=(0.8, 0.8),
+                              auto_dismiss=False)
+                popup.mainWidget = mainWidget
+                popup.bind(on_dismiss=episodeError)
+                button.bind(on_release=popup.dismiss)
+                popup.open()
+
+                return
+
             # Exiting before data is received
             if mainWidget.title != "":
                 mainWidget.finalUrls = finalUrls
@@ -730,6 +757,7 @@ class VideoWindow(Widget):
                         text='Please Re-Search this Anime, If Problems Still Occur, Please Contact Me on the ABOUT Section',
                         #size_hint=(0.6, 1),
                     )
+
                     def setButtonTextSize(instance, size):
                         instance.text_size[0] = size[0]*0.8
 

@@ -5,6 +5,8 @@ from urllib.parse import quote_plus, urlparse
 
 import bs4
 import requests
+import cchardet
+import socket
 
 #import line_profiler_pycharm
 
@@ -12,6 +14,19 @@ import requests
 headers = {
     "User-Agent": 'Mozilla/5.0 (Windows NT 6.3; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.115 Safari/537.36'
 }
+
+
+def isConnected():
+    try:
+        # connect to the host -- tells us if the host is actually
+        # reachable
+        sock = socket.create_connection(("www.google.com", 80))
+        if sock is not None:
+            sock.close()
+        return True
+    except OSError:
+        pass
+    return False
 
 
 def RemoveDuplicatedPreserveOrder(listData) -> list:
@@ -42,68 +57,71 @@ def parseTitleEp(titleEpString, default=None) -> tuple:
 def GetLatestDataAnimeDaoTo(mode="gogoanime") -> list:
     url = mode == "animedao" and r"https://animedao.to" or r"https://www1.gogoanime.cm"
 
-    urlRequest = requests.get(url, headers=headers)
-    logging.info(f"Webscraper: Getting Latest - {url} - {mode}")
-    #urlRequest = None
+    if isConnected():
+        urlRequest = requests.get(url, headers=headers)
+        logging.info(f"Webscraper: Getting Latest - {url} - {mode}")
+        #urlRequest = None
 
-    if urlRequest.status_code == 200:
-        content = urlRequest.content
-        #file = open("AnimeDao.html", mode="r", encoding="utf8")
-        #content = file.read()
-        #file.close()
+        if urlRequest.status_code == 200:
+            content = urlRequest.content
+            #file = open("AnimeDao.html", mode="r", encoding="utf8")
+            #content = file.read()
+            #file.close()
 
-        tree = bs4.BeautifulSoup(content, 'lxml')
+            tree = bs4.BeautifulSoup(content, 'lxml')
 
-        if mode == "animedao":
-            divLatestGroup = tree.findAll('div', {"class": "col-xs-12 col-sm-6 col-md-6 col-lg-4"})
-            divLatestGroup = [div.findAll('div', {"class": "row"})[0] for div in divLatestGroup if div.parent["class"] == ['tab-pane', 'fade', 'active', 'in']]
+            if mode == "animedao":
+                divLatestGroup = tree.findAll('div', {"class": "col-xs-12 col-sm-6 col-md-6 col-lg-4"})
+                divLatestGroup = [div.findAll('div', {"class": "row"})[0] for div in divLatestGroup if div.parent["class"] == ['tab-pane', 'fade', 'active', 'in']]
 
-            aniDataSplit = [[div.findAll('img')[0]["data-src"], div.findAll('a'), div.findAll("span", {"class": "latestanime-subtitle"})] for div in divLatestGroup]
+                aniDataSplit = [[div.findAll('img')[0]["data-src"], div.findAll('a'), div.findAll("span", {"class": "latestanime-subtitle"})] for div in divLatestGroup]
 
-            aniData = []
-            for data in aniDataSplit:
-                successful, episodeNumber, extraName = parseTitleEp(data[1][0]["title"])
+                aniData = []
+                for data in aniDataSplit:
+                    successful, episodeNumber, extraName = parseTitleEp(data[1][0]["title"])
 
-                if successful:
-                    data = {#"title": data[1][2]["title"],
-                            "name": extraName,
-                            "episode": episodeNumber,
-                            #"source": data[2][0].get("title", ""),
-                            "thumbnail": url + data[0],
-                            #"view": url + data[1][0]["href"],
-                            "ani": url + data[1][2]["href"]
-                           }
+                    if successful:
+                        data = {#"title": data[1][2]["title"],
+                                "name": extraName,
+                                "episode": episodeNumber,
+                                #"source": data[2][0].get("title", ""),
+                                "thumbnail": url + data[0],
+                                #"view": url + data[1][0]["href"],
+                                "ani": url + data[1][2]["href"]
+                               }
+
+                        aniData.append(data)
+
+                return aniData
+            elif mode == "gogoanime":
+                aniData = []
+
+                items = tree.find("ul", {"class": "items"})
+                for liTag in items.find_all("li"):
+                    imageSrc = liTag.find("img")["src"]
+                    name = liTag.find("a")["title"]
+                    episode = int(liTag.find("p", {"class": "episode"}).text.split(" ")[-1])
+
+                    aniName = ".".join(imageSrc.split("/")[-1].split(".")[:-1])
+                    aniSource = f"https://www1.gogoanime.cm/category/{aniName}"
+
+                    data = {  # "title": data[1][2]["title"],
+                        "name": name,
+                        "episode": episode,
+                        # "source": data[2][0].get("title", ""),
+                        "thumbnail": imageSrc,
+                        # "view": url + data[1][0]["href"],
+                        "ani": aniSource
+                    }
 
                     aniData.append(data)
 
-            return aniData
-        elif mode == "gogoanime":
-            aniData = []
+                return aniData
 
-            items = tree.find("ul", {"class": "items"})
-            for liTag in items.find_all("li"):
-                imageSrc = liTag.find("img")["src"]
-                name = liTag.find("a")["title"]
-                episode = int(liTag.find("p", {"class": "episode"}).text.split(" ")[-1])
-
-                aniName = ".".join(imageSrc.split("/")[-1].split(".")[:-1])
-                aniSource = f"https://www1.gogoanime.cm/category/{aniName}"
-
-                data = {  # "title": data[1][2]["title"],
-                    "name": name,
-                    "episode": episode,
-                    # "source": data[2][0].get("title", ""),
-                    "thumbnail": imageSrc,
-                    # "view": url + data[1][0]["href"],
-                    "ani": aniSource
-                }
-
-                aniData.append(data)
-
-            return aniData
-
-        else:
-            return GetLatestDataAnimeDaoTo(mode="animedao")
+            else:
+                return GetLatestDataAnimeDaoTo(mode="animedao")
+    else:
+        logging.info(f"Webscraper: Latest Data - No Connection..")
 
     return []
 
@@ -118,62 +136,65 @@ def SearchDataAnimeDaoTo(query, mode="gogoanime"):
     else:
         return SearchDataAnimeDaoTo(query, mode="animedao")
 
-    urlRequest = requests.get(requestUrl, headers=headers)
-    logging.info(f"Webscraper: Searching Query - {requestUrl} - {mode}")
+    if isConnected():
+        urlRequest = requests.get(requestUrl, headers=headers)
+        logging.info(f"Webscraper: Searching Query - {requestUrl} - {mode}")
 
-    if urlRequest.status_code == 200:
-        content = urlRequest.content
-        #print(getsizeof(content))
+        if urlRequest.status_code == 200:
+            content = urlRequest.content
+            #print(getsizeof(content))
 
-        tree = bs4.BeautifulSoup(content, 'lxml')
+            tree = bs4.BeautifulSoup(content, 'lxml')
 
-        if mode == "animedao":
-            divLatestGroup = tree.findAll('div', {"class": "col-xs-12 col-sm-6 col-md-6 col-lg-4"})
+            if mode == "animedao":
+                divLatestGroup = tree.findAll('div', {"class": "col-xs-12 col-sm-6 col-md-6 col-lg-4"})
 
-            aniData = []
+                aniData = []
 
-            for div in divLatestGroup:
-                data = {}
+                for div in divLatestGroup:
+                    data = {}
 
-                aniLink = div.findAll("a")[0].get("href", "")
-                data["ani"] = baseUrl + aniLink
+                    aniLink = div.findAll("a")[0].get("href", "")
+                    data["ani"] = baseUrl + aniLink
 
-                imageLink = div.findAll('img')[0]["data-src"]
-                data["thumbnail"] = baseUrl + imageLink
+                    imageLink = div.findAll('img')[0]["data-src"]
+                    data["thumbnail"] = baseUrl + imageLink
 
-                nameData = div.findAll("div", {"class": "ongoingtitle"})[0]
-                title = nameData.findAll("b")[0].text
-                titleData = nameData.findAll("small")[0].text
+                    nameData = div.findAll("div", {"class": "ongoingtitle"})[0]
+                    title = nameData.findAll("b")[0].text
+                    titleData = nameData.findAll("small")[0].text
 
-                data["name"] = title
-                data["nameExtra"] = titleData
+                    data["name"] = title
+                    data["nameExtra"] = titleData
 
-                aniData.append(data)
+                    aniData.append(data)
 
-            return aniData
+                return aniData
 
-        elif mode == "gogoanime":
-            items = tree.find("ul", {"class": "items"})
+            elif mode == "gogoanime":
+                items = tree.find("ul", {"class": "items"})
 
-            aniData = []
+                aniData = []
 
-            for liTag in items.find_all("li"):
-                imageSrc = liTag.find("img")["src"]
-                name = liTag.find("a")["title"]
-                aniSource = baseUrl + liTag.find("a")["href"]
+                for liTag in items.find_all("li"):
+                    imageSrc = liTag.find("img")["src"]
+                    name = liTag.find("a")["title"]
+                    aniSource = baseUrl + liTag.find("a")["href"]
 
-                data = {
-                    "name": name,
-                    "thumbnail": imageSrc,
-                    "ani": aniSource
-                }
+                    data = {
+                        "name": name,
+                        "thumbnail": imageSrc,
+                        "ani": aniSource
+                    }
 
-                aniData.append(data)
+                    aniData.append(data)
 
-            return aniData
+                return aniData
 
-        else:
-            return SearchDataAnimeDaoTo(query, mode="animedao")
+            else:
+                return SearchDataAnimeDaoTo(query, mode="animedao")
+    else:
+        logging.info(f"Webscraper: Search - No Connection")
 
     return []
 
@@ -181,7 +202,68 @@ def SearchDataAnimeDaoTo(query, mode="gogoanime"):
 def GetAniGenres(aniData):
     def getAniGenre(data):
         mainAniData, aniUrl = data
+
+        if isConnected():
+            urlRequest = requests.get(aniUrl, headers=headers)
+
+            if urlRequest.status_code == 200:
+                content = urlRequest.content
+                # print(getsizeof(content))
+
+                if aniUrl.startswith("https://animedao.to"):
+                    tree = bs4.BeautifulSoup(content, 'lxml')
+
+                    genreHrefs = tree.find_all("a", {"class": "animeinfo_label"})
+
+                    return [a.get("href", "").split("=")[-1] for a in genreHrefs]
+
+                elif aniUrl.startswith("https://www1.gogoanime.cm"):
+                    pattern = r"(<div class=\"anime_info_body_bg\">)\n((.|\n)*?)(\/div)"
+                    matches = re.finditer(pattern, content.decode("utf-8"), re.MULTILINE)
+                    adjContent = ""
+
+                    for matchNum, match in enumerate(matches, start=1):
+                        adjContent = match.group(2)
+
+                    tree = bs4.BeautifulSoup(adjContent, 'lxml')
+
+                    pTypeTags = tree.find_all("p", {"class": "type"})
+
+                    genre = []
+                    for pType in pTypeTags:
+                        lowerText = pType.text.lower()
+
+                        if "genre" in lowerText:
+                            for aTag in pType.find_all("a"):
+                                genre.append(aTag["title"])
+
+                        elif "other name" in lowerText:
+                            mainAniData["nameExtra"] = pType.text[12:]
+
+                    return genre
+        else:
+            logging.info(f"Webscraper: Genre Sub - No Connection")
+
+        return []
+
+    if isConnected():
+        with ThreadPoolExecutor(max_workers=min(20, max(len(aniData), 1))) as executor:
+            results = executor.map(getAniGenre, [(data, data["ani"], ) for data in aniData])
+
+        return [genre for genre in results]
+    else:
+        logging.info(f"Webscraper: Genre Main - No Connection")
+
+    return []
+
+
+def GetAniData(aniUrl):
+    mode = aniUrl.startswith("https://www1.gogoanime.cm") and "gogoanime" or "animedao"
+    baseUrl = mode == "animedao" and r"https://animedao.to" or r"https://www1.gogoanime.cm"
+
+    if isConnected():
         urlRequest = requests.get(aniUrl, headers=headers)
+        logging.info(f"Webscraper: Getting Ani Data - {aniUrl} - {mode}")
 
         if urlRequest.status_code == 200:
             content = urlRequest.content
@@ -189,86 +271,47 @@ def GetAniGenres(aniData):
 
             tree = bs4.BeautifulSoup(content, 'lxml')
 
-            if aniUrl.startswith("https://animedao.to"):
-                genreHrefs = tree.find_all("a", {"class": "animeinfo_label"})
+            if mode == "animedao":
+                episodeHref = [a for a in tree.find_all("a") if "view" in a["href"]]
+                episodeData = [[a["href"], a.find("div", {"class": "anime-title"})] for a in episodeHref]
 
-                return [a.get("href", "").split("=")[-1] for a in genreHrefs]
+                episodeData = [{"view": baseUrl + data[0], "title": data[1].text.strip(), "name": data[1].parent.find_all("span")[-1]["title"]} for data in episodeData if data[1].parent.find_all("span")[-1].get("title", "")]
 
-            elif aniUrl.startswith("https://www1.gogoanime.cm"):
+                description = tree.find("div", {"id": "demo"}).text.strip()
+                icon = baseUrl + tree.find("img")["src"]
+
+                title = "-".join(tree.title.text.split("-")[:-1]).strip()
+
+                return title, icon, description, episodeData
+
+            elif mode == "gogoanime":
+                animeInfoTag = tree.find("div", {"class": "anime_info_body_bg"})
+                title = animeInfoTag.find("h1").text.strip()
+                icon = animeInfoTag.find("img")["src"]
+                description = ""
+
                 pTypeTags = tree.find_all("p", {"class": "type"})
-
-                genre = []
                 for pType in pTypeTags:
                     lowerText = pType.text.lower()
 
-                    if "genre" in lowerText:
-                        for aTag in pType.find_all("a"):
-                            genre.append(aTag["title"])
+                    if "plot summary" in lowerText:
+                        description = pType.text[14:]
 
-                    elif "other name" in lowerText:
-                        mainAniData["nameExtra"] = pType.text[12:]
+                episodePage = tree.find("ul", {"id": "episode_page"})
+                episodeStartStops = [(aTag["ep_start"], aTag["ep_end"]) for aTag in episodePage.find_all("a")]
 
-                return genre
+                episodeStartStops = [(int(start), int(end)) for start, end in episodeStartStops]
 
-        return []
+                startEp = min(map(min, episodeStartStops)) + 1
+                maxEp = max(map(max, episodeStartStops))
+                baseEpisodeUrl = f"{baseUrl}/{aniUrl.split('/')[-1]}-episode"
 
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        results = executor.map(getAniGenre, [(data, data["ani"], ) for data in aniData])
+                episodeData = [{"view": f"{baseEpisodeUrl}-{i}", "title": f"{title} Episode {i}", "name": ""} for i in range(startEp, maxEp+1)]
 
-    return [genre for genre in results]
+                return title, icon, description, episodeData
 
-
-def GetAniData(aniUrl):
-    mode = aniUrl.startswith("https://www1.gogoanime.cm") and "gogoanime" or "animedao"
-    urlRequest = requests.get(aniUrl, headers=headers)
-    baseUrl = mode == "animedao" and r"https://animedao.to" or r"https://www1.gogoanime.cm"
-
-    logging.info(f"Webscraper: Getting ANi Data - {baseUrl} - {mode}")
-
-    if urlRequest.status_code == 200:
-        content = urlRequest.content
-        # print(getsizeof(content))
-
-        tree = bs4.BeautifulSoup(content, 'lxml')
-
-        if mode == "animedao":
-            episodeHref = [a for a in tree.find_all("a") if "view" in a["href"]]
-            episodeData = [[a["href"], a.find("div", {"class": "anime-title"})] for a in episodeHref]
-
-            episodeData = [{"view": baseUrl + data[0], "title": data[1].text.strip(), "name": data[1].parent.find_all("span")[-1]["title"]} for data in episodeData if data[1].parent.find_all("span")[-1].get("title", "")]
-
-            description = tree.find("div", {"id": "demo"}).text.strip()
-            icon = baseUrl + tree.find("img")["src"]
-
-            title = "-".join(tree.title.text.split("-")[:-1]).strip()
-
-            return title, icon, description, episodeData
-
-        elif mode == "gogoanime":
-            animeInfoTag = tree.find("div", {"class": "anime_info_body_bg"})
-            title = animeInfoTag.find("h1").text.strip()
-            icon = animeInfoTag.find("img")["src"]
-            description = ""
-
-            pTypeTags = tree.find_all("p", {"class": "type"})
-            for pType in pTypeTags:
-                lowerText = pType.text.lower()
-
-                if "plot summary" in lowerText:
-                    description = pType.text[14:]
-            
-            episodePage = tree.find("ul", {"id": "episode_page"})
-            episodeStartStops = [(aTag["ep_start"], aTag["ep_end"]) for aTag in episodePage.find_all("a")]
-
-            episodeStartStops = [(int(start), int(end)) for start, end in episodeStartStops]
-
-            startEp = min(map(min, episodeStartStops)) + 1
-            maxEp = max(map(max, episodeStartStops))
-            baseEpisodeUrl = f"{baseUrl}/{aniUrl.split('/')[-1]}-episode"
-
-            episodeData = [{"view": f"{baseEpisodeUrl}-{i}", "title": f"{title} Episode {i}", "name": ""} for i in range(startEp, maxEp+1)]
-
-            return title, icon, description, episodeData
+    else:
+        logging.info(f"Webscraper: Anime Info - No Connection")
 
     return None, None, None, None
 
@@ -388,62 +431,69 @@ def extractVideoFiles(aniEpUrl, repeat=5, currentRepeat=0):
 
     #aniEpUrl = r"https://animedao.to/view/431131313/"
     mode = aniEpUrl.startswith("https://www1.gogoanime.cm") and "gogoanime" or "animedao"
-    urlRequest = requests.get(aniEpUrl, headers=headers)
     baseUrl = r"https://animedao.to"
-    logging.info(f"Webscraper: Scanning {aniEpUrl}")
 
-    if urlRequest.status_code == 200:
-        logging.info(f"Webscraper: Scanning - In Progress")
+    if isConnected():
+        urlRequest = requests.get(aniEpUrl, headers=headers)
+        logging.info(f"Webscraper: Scanning {aniEpUrl}")
 
-        content = urlRequest.content
-        # print(getsizeof(content))
+        if urlRequest.status_code == 200:
+            logging.info(f"Webscraper: Scanning - In Progress")
 
-        tree = bs4.BeautifulSoup(content, 'lxml')
-        sources = []
+            content = urlRequest.content
+            # print(getsizeof(content))
 
-        if mode == "animedao":
-            scripts = tree.find_all("script")
-            scripts = [script.text for script in scripts if "/redirect/" in script.text or "playdrive.xyz" in script.text]
+            tree = bs4.BeautifulSoup(content, 'lxml')
+            sources = []
 
-            iframes = [re.search("<iframe (.*?)</iframe>", script) for script in scripts]
-            iframes = [iframeRe.group() for iframeRe in iframes if iframeRe]
+            if mode == "animedao":
+                scripts = tree.find_all("script")
+                scripts = [script.text for script in scripts if "/redirect/" in script.text or "playdrive.xyz" in script.text]
 
-            sources = [re.search(r'src\s*=\s*"(.+?)"', iframe).group(1) for iframe in iframes]
-            sources = ["redirect" in source and baseUrl + source or source for source in sources]
+                iframes = [re.search("<iframe (.*?)</iframe>", script) for script in scripts]
+                iframes = [iframeRe.group() for iframeRe in iframes if iframeRe]
 
-        elif mode == "gogoanime":
-            sources = [tree.find("li", {"class", "dowloads"}).find("a")["href"]]
+                sources = [re.search(r'src\s*=\s*"(.+?)"', iframe).group(1) for iframe in iframes]
+                sources = ["redirect" in source and baseUrl + source or source for source in sources]
 
-        urls = []
-        for url in sources:
-            endUrl = recursiveGetVideoUrl(url)
-            urls.append(endUrl)
+            elif mode == "gogoanime":
+                sources = [tree.find("li", {"class", "dowloads"}).find("a")["href"]]
 
-            if endUrl != "empty":
-                break
+            urls = []
+            for url in sources:
+                endUrl = recursiveGetVideoUrl(url)
+                urls.append(endUrl)
 
-        urlsFinal = []
-        for url in urls:
-            if url != "empty":
-                if isinstance(url, list):
-                    urlsFinal.extend(url)
-                else:
-                    urlsFinal.append(url)
+                if endUrl != "empty":
+                    break
 
-        logging.info(f"Webscraper: Final Urls {urlsFinal}")
+            urlsFinal = []
+            for url in urls:
+                if url != "empty":
+                    if isinstance(url, list):
+                        urlsFinal.extend(url)
+                    else:
+                        urlsFinal.append(url)
 
-        return urlsFinal
+            logging.info(f"Webscraper: Final Urls {urlsFinal}")
+
+            return urlsFinal
+
+        else:
+            logging.info(f"Webscraper: Scanning - Failed")
+
+            if currentRepeat <= repeat:
+                logging.info(f"Webscraper: Repeating at {currentRepeat+1}, Max {repeat}")
+
+                return extractVideoFiles(aniEpUrl, repeat=repeat, currentRepeat=currentRepeat+1)
+
+            logging.info(f"Webscraper: Scanning - Failed, View URL is broken")
+            return []
 
     else:
-        logging.info(f"Webscraper: Scanning - Failed")
+        logging.info(f"Webscraper: Video Extracter - No Connection")
 
-        if currentRepeat <= repeat:
-            logging.info(f"Webscraper: Repeating at {currentRepeat+1}, Max {repeat}")
-
-            return extractVideoFiles(aniEpUrl, repeat=repeat, currentRepeat=currentRepeat+1)
-
-        logging.info(f"Webscraper: Scanning - Failed, View URL is broken")
-        return []
+    return []
 
 
 if __name__ == "__main__":
@@ -455,6 +505,5 @@ if __name__ == "__main__":
     e = time() - s
 
     print(f"{round(e*1000)}ms")
-    #pprint(data)
 
     #SearchDataAnimeDaoTo("Sword Art Online")
