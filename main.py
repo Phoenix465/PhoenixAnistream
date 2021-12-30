@@ -536,6 +536,7 @@ class HomeWindow(Widget):
                 threadData.append((widget.ids.Thumbnail, data[3]))
 
             self.updateAniWidgets(0, override=True)
+            self.RefreshBookmarkedAni(override=True)
             threading.Thread(target=self.updateImageTextures, args=(threadData,), daemon=True).start()
 
     def RefreshBookmarkedAni(self, *args, searchQuery="", override=False):
@@ -632,10 +633,12 @@ class HomeWindow(Widget):
         self.updateAniWidgets(0, override=True)
 
     def ViewBookmarkButtonToggle(self, override=False):
-        self.ids.ViewBookmarkButton.clicked = not self.ids.ViewBookmarkButton.clicked
         if not override:
             self.bookmarkMode = not self.bookmarkMode
 
+        self.ids.ViewBookmarkButton.clicked = self.bookmarkMode
+        self.RefreshBookmarkedAni(override=True)
+            
         if self.bookmarkMode:
             if self.MainScrollGrid.parent == self:
                 self.remove_widget(self.MainScrollGrid)
@@ -674,12 +677,13 @@ class HomeWindow(Widget):
         searchButton = self.ids.SearchButton
         backButton = self.ids.BackButton
 
-        if not self.searchToggle and not skip:
-            self.bookmarkMode = False
-            self.ViewBookmarkButtonToggle(override=True)
+        if not skip:
+            if not self.searchToggle:
+                self.bookmarkMode = False
+                self.ViewBookmarkButtonToggle(override=True)
 
-            if self.NoAnimeFound.parent == self:
-                self.remove_widget(self.NoAnimeFound)
+                if self.NoAnimeFound.parent == self:
+                    self.remove_widget(self.NoAnimeFound)
 
         if not skip:
             if self.searchToggle:
