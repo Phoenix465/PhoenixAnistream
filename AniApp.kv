@@ -82,7 +82,8 @@
 
 <TempInputBox@TextInput>
 
-
+<LongShortPressButton@Factory.Button>
+                
 <EpisodeInputBox@FloatLayout>
     pos: self.pos
     size: self.size
@@ -112,7 +113,10 @@
         pos: self.parent.pos
         size: self.parent.size
 
+        text_size: self.size
         font_size: self.size[1] / 2
+        halign: "left"
+        valign: "center"
 
         input_filter: "int"
 
@@ -133,6 +137,8 @@
     imageSizeY: 0
     fontSize: 0
     data: None
+    restoreLink: None
+    specialData: None
 
     canvas.before:
         StencilPush
@@ -146,25 +152,9 @@
 
         StencilUse
 
-
     canvas.after:
         StencilUnUse
-
-        Color:
-            rgba: hex("#00000000")
-        RoundedRectangle:
-            pos: 0, 0
-
-            # It cause rectangle in corner..
-            # I suppose setting the size to 0 eliminates traces of the rectangle to stay behind
-            # This somehow clears the stencil though, even though I'm not redrawing it as said in the documentation...
-            # whatever it works
-
-            size: 0, 0 # self.size
-            radius: [25, 5, 25, 5]
-
         StencilPop
-
 
     Image:
         id: Thumbnail
@@ -218,6 +208,7 @@
     thumbnailUrl: ""
     aniText: ""
     extraNames: ""
+    rawExtraNames: ""
     genre: ""
     imageSizeY: 0
     fontSize: 0
@@ -308,10 +299,17 @@
     fontSize: 0
     episodeNumber: "0"
     colour: "#ffd700"
+    specialColour: "#32CD32"
     name: self.name
     title: self.title
     view: self.view
-
+    aniTitle: ""
+    thumbnailSource: ""
+    aniTitleGood: ""
+    aniUrl: ""
+    isHighlighted: False
+    maxEpNum: 0
+    
     canvas.before:
         Color:
             rgb: hex("#000000")
@@ -322,7 +320,7 @@
             radius: [10, 10, 10, 10]
 
         Color:
-            rgb: hex(self.colour)
+            rgb: hex(self.specialColour if self.isHighlighted else self.colour)
 
         RoundedRectangle:
             pos: 0, 0
@@ -343,13 +341,46 @@
 
         text: self.parent.episodeNumber
 
-    Button:
+    LongShortPressButton:
         background_color: (0, 0, 0, 0)
         background_normal: ''
         back_color: (0, 0, 0, 0)
+            
+        long_press_time: 0.25
+        
+        on_short_press: root.parent.parent.parent.parent.EpisodeButtonPressed(root)
+        on_long_press: root.parent.parent.parent.parent.EpisodeButtonPressedLong(root)
 
-        on_press: root.parent.parent.parent.parent.EpisodeButtonPressed(root)
+<CryingNoAnimeFoundWidget@RelativeLayout>
+    pos: self.pos
+    size: self.size
+    size_hint: None, None
 
+    Video:
+        id: gif
+        source: 'crying.mp4'
+        pos: 0, 0
+        size: self.parent.size
+        size_hint: None, None
+        allow_stretch: True
+        state: "play"
+        options: {"eos": "loop"}
+
+    Label:
+        canvas.before:
+            Color:
+                rgba: (0, 0, 0, 0.2)
+
+            RoundedRectangle:
+                pos: self.pos[0] - self.texture_size[0]*0.05, self.pos[1] - self.texture_size[1]*0.05
+                size: self.texture_size[0]*1.1, self.texture_size[1]*1.1
+                radius: [10, 10, 10, 10]
+
+        text: "No Anime Found..."
+        pos: root.width/2 - self.texture_size[0]/2, root.height*0.1
+        size: self.texture_size
+        size_hint: None, None
+        font_size: root.height * 0.075
 
 <HomeWindow@Widget>:
     canvas.before:
@@ -374,7 +405,7 @@
         id: SearchButton
         background_normal: ""
         background_color: (0, 0, 0, 0)
-        pos: root.width*0.95 - ((root.height*0.1+2)*2), root.height*(0.9 + 0.01)
+        pos: root.width*0.95 - ((root.height*0.1+2)*3), root.height*(0.9 + 0.01)
         size: root.height*0.08, root.height*0.08
 
         on_press: root.SearchButtonToggle()
@@ -384,6 +415,25 @@
             size: self.parent.size
             size_hint: None, None
             source: "search.png"
+            mipmap: True
+
+    Button:
+        id: ViewBookmarkButton
+        background_normal: ""
+        background_color: (0, 0, 0, 0)
+        pos: root.width*0.95 - ((root.height*0.1+2)*2), root.height*(0.9 + 0.01)
+        size: root.height*0.08, root.height*0.08
+        clicked: False
+
+        on_press: root.ViewBookmarkButtonToggle()
+
+        Image:
+            color: self.parent.clicked and (142/255, 146/255, 151/255, 1) or (1, 1, 1, 1)
+
+            pos: self.parent.pos
+            size: self.parent.size
+            size_hint: None, None
+            source: "bookmark.png"
             mipmap: True
 
     Button:
@@ -399,6 +449,25 @@
             size: self.parent.size
             size_hint: None, None
             source: "about.png"
+            mipmap: True
+
+    Button:
+        id: HistoryButton
+
+        background_normal: ""
+        background_color: (0, 0, 0, 0)
+        pos: root.width - (root.height*0.1+2), root.height*(0.9 + 0.01)
+        size: root.height*0.08, root.height*0.08
+        clicked: False
+
+        on_press: root.HistoryButtonClicked()
+
+        Image:
+            color: self.parent.clicked and (142/255, 146/255, 151/255, 1) or (1, 1, 1, 1)
+            pos: self.parent.pos
+            size: self.parent.size
+            size_hint: None, None
+            source: "history.png"
             mipmap: True
 
     Button:
@@ -494,6 +563,58 @@
                 width: root.aniWidgetWidth
                 height: root.aniWidgetHeight
 
+    ScrollView:
+        id: ScrollBookmarkGrid
+
+        size: root.width, root.height*0.9
+        size_hint: 1, None
+        #effect_cls: "ScrollEffect"
+        scroll_wheel_distance: 20
+
+        GridLayout:
+            id: BookmarkGridLayout
+            size: root.width, root.height*0.9
+            orientation: "lr-tb"
+            size_hint_y: None
+
+            height: self.minimum_height
+
+            cols: root.gridCols
+            padding: root.padding
+            spacing: root.spacingX, 40
+
+            SearchAniWidget:
+                id: PlaceHolder4
+
+                width: root.aniWidgetWidth
+                height: root.aniWidgetHeight
+
+    ScrollView:
+        id: ScrollRecentGrid
+
+        size: root.width, root.height*0.9
+        size_hint: 1, None
+        #effect_cls: "ScrollEffect"
+        scroll_wheel_distance: 20
+
+        GridLayout:
+            id: RecentGridLayout
+            size: root.width, root.height*0.9
+            orientation: "lr-tb"
+            size_hint_y: None
+
+            height: self.minimum_height
+
+            cols: root.gridCols
+            padding: root.padding
+            spacing: root.spacingX, 40
+
+            AniWidget:
+                id: PlaceHolder3
+
+                width: root.aniWidgetWidth
+                height: root.aniWidgetHeight
+
     FloatLayout:
         size: root.size
 
@@ -504,6 +625,12 @@
             font_size: root.height*0.1*0.4
             size: root.width, root.height*0.1
             pos: -root.width/2 + (root.height*0.1*0.4)*len("PhoenixAnistream")/2*0.6, root.height*0.45
+
+    CryingNoAnimeFoundWidget:
+        id: NoAnimeFound
+
+        size: root.width, root.height*0.9
+        pos: 0, 0
 
 <InfoWindow@Widget>:
     canvas.before:
@@ -566,7 +693,7 @@
                 allow_stretch: True
                 keep_ratio: False
                 mipmap: True
-
+                            
                 canvas.before:
                     StencilPush
 
@@ -582,22 +709,37 @@
 
                 canvas.after:
                     StencilUnUse
-
-                    #Color:
-                    #    rgba: hex("#00000000")
-                    RoundedRectangle:
-                        pos: self.pos
-
-                        # It cause rectangle in corner..
-                        # I suppose setting the size to 0 eliminates traces of the rectangle to stay behind
-                        # This somehow clears the stencil though, even though I'm not redrawing it as said in the documentation...
-                        # whatever it works
-
-                        size: 0, 0
-                        #size: self.size
-                        radius: [25, 5, 25, 5]
-
                     StencilPop
+
+            RoundedButton:
+                id: EpisodeCounter
+
+                back_color: hex("#686868")
+
+                pos: root.width*0.5, root.height*(0.4 * 16/9 + 0.05)
+                size_hint: None, None
+                size: root.width*0.4 - 10, root.height/12
+                border_radius: [5, 5, 5, 5]
+                text: ""
+                font_size: root.height/15
+
+            RoundedButton:
+                id: BookmarkButton
+                clicked: False
+
+                back_color: hex("#424242") if not self.clicked else hex('#5865F2')
+
+                pos: root.width*0.1, root.height*(0.4 * 16/9 + 0.05)
+                size_hint: None, None
+                size: root.width*0.4 - 10, root.height/12
+                border_radius: [5, 5, 5, 5]
+                text_size: self.size
+                text: "Bookmark"
+                font_size: root.height/15
+                halign: "center"
+                valign: "center"
+
+                on_press: root.BookmarkClicked()
 
             Button:
                 background_color: (0, 0, 0, 0)
@@ -803,7 +945,7 @@
         size: root.width, root.height/36
         value_track_width: root.height/(36*1.5)
         value_track_color: 0.1, 0.1, 0.1, 0.8
-
+        padding: root.height/36
         #cursor_image: "circle.png"
         #cursor_size: root.height/10, root.height/10
 
@@ -827,6 +969,7 @@
         value: 100
 
         orientation: 'horizontal'
+        padding: root.height/36
 
         pos: root.width*0.5, root.height/36
         size: root.width*0.5, root.height/36

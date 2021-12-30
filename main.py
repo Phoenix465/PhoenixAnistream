@@ -1,8 +1,16 @@
+from kivy.config import Config
+Config.set('kivy', 'exit_on_escape', '0')
+Config.set('kivy', 'window_icon', 'PhoenixAniStream.png')
+Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
+Config.set('graphics', 'minimum_width', '320')
+Config.set('graphics', 'minimum_height', '180')
+
 import atexit
 import logging
 import queue
 import threading
 import webbrowser
+import copy
 
 import kivy
 from kivy.storage.jsonstore import JsonStore
@@ -15,12 +23,6 @@ kivy.require('2.0.0')  # replace with your current kivy version !
 from kivy.core.window import Window
 #Window.size = (1280 / 2, 720 / 2)
 
-from kivy.config import Config
-Config.set('kivy', 'exit_on_escape', '0')
-Config.set('kivy', 'window_icon', 'PhoenixAniStream.png')
-Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
-
-
 from kivy.app import App
 from kivy.uix.widget import Widget
 from kivy.uix.relativelayout import RelativeLayout
@@ -30,6 +32,8 @@ from kivy.uix.screenmanager import ScreenManager, SlideTransition
 from kivy.animation import Animation
 from kivy.clock import Clock
 from kivy.clock import mainthread
+from kivy.factory import Factory
+
 import os.path as path
 from os import mkdir
 from KivyOnTop import register_topmost, unregister_topmost
@@ -99,6 +103,41 @@ class TempInputBox(TextInput):
         return super(TempInputBox, self).insert_text(substring, from_undo=from_undo)
 
 
+class LongShortPressButton(Factory.Button):
+    __events__ = ('on_long_press', 'on_short_press', )
+
+    long_press_time = Factory.NumericProperty(1)
+    
+    downClickTime = time()
+    debounce = True
+    
+    def on_state(self, instance, value):
+        if value == 'down' and self.debounce:
+            self.debounce = False
+            self.downClickTime = time()
+            lpt = self.long_press_time
+            self._clockev = Clock.schedule_once(self._do_long_press, lpt)
+            
+        elif not self.debounce:  # value == "up"
+            if time() - self.downClickTime < self.long_press_time:                
+                self._do_short_press(0)
+
+            self.debounce = True   
+            self._clockev.cancel()
+
+    def _do_long_press(self, dt):
+        self.dispatch('on_long_press')
+    
+    def _do_short_press(self, dt):
+        self.dispatch('on_short_press')
+    
+    def on_long_press(self, *largs):
+        pass
+    
+    def on_short_press(self, *largs):
+        pass
+
+
 class HomeWindow(Widget):
     padding = NumericProperty(20)
     spacingX = NumericProperty(10)
@@ -118,11 +157,26 @@ class HomeWindow(Widget):
 
     ScrollAniGrid = None
     ScrollSearchGrid = None
+    ScrollRecentGrid = None
+    ScrollBookmarkGrid = None
+
+    NoAnimeFound = None
+
+    MainScrollGrid = None
+    OtherMainScrollGrid = None
+    videoWindow = None
+
+    bookmarkMode = False
+
+    OldSearchText = ""
 
     searchQueue = queue.LifoQueue()
     latestSearchThread = None
 
     infoWindowWidget = None
+
+    oldRecentWatch = {}
+    oldBookmarkedAni = {}
 
     # --- Ani Data Updater ---
     def updateVars(self, dt):
@@ -141,7 +195,20 @@ class HomeWindow(Widget):
 
         searchBox = self.ids.TextInputSearchBox
 
-        gridLayout = self.ids.AniGridLayout if searchBox.opacity == 0 else self.ids.SearchGridLayout
+        #gridLayout = (self.ScrollAniGrid == self.MainScrollGrid and self.ids.AniGridLayout or self.ids.RecentGridLayout) if searchBox.opacity == 0 else self.ids.SearchGridLayout
+        if self.ScrollAniGrid.parent == self:
+            gridLayout = self.ids.AniGridLayout
+        elif self.ScrollSearchGrid.parent == self:
+            gridLayout = self.ids.SearchGridLayout
+        elif self.ScrollRecentGrid.parent == self:
+            gridLayout = self.ids.RecentGridLayout
+        elif self.ScrollBookmarkGrid.parent == self:
+            gridLayout = self.ids.BookmarkGridLayout
+        else:
+            print("Error Grid Layout")
+            return
+
+        #gridLayout = (self.ScrollAniGrid == self.MainScrollGrid and self.ids.AniGridLayout or self.ids.RecentGridLayout) if searchBox.opacity == 0 else self.ids.SearchGridLayout
         gridLayout.height = gridLayout.minimum_height
 
         if currentScreensize != self.oldScreensize or not self.firstUpdateAniWidget or override:
@@ -159,7 +226,7 @@ class HomeWindow(Widget):
                 rowsLengths = [ceil(pLength / self.aniWidgetWidth) for pLength in rowsPLengths]
 
                 rows = sum(rowsLengths)
-                rows += 1
+                rows += 2
 
                 # print(textS, rowsLengths)
 
@@ -167,7 +234,7 @@ class HomeWindow(Widget):
                     maxRows = rows
 
                     # print(maxRows, textS, rowsLengths)
-            # print()
+
             self.aniWidgetHeightExtra = maxRows * (self.fontSize * 1.1) - (
                         1 - self.imageSizeYOrig) * self.aniWidgetHeight / 2
             self.imageSizeY = (self.imageSizeYOrig * self.aniWidgetHeight) / (
@@ -230,14 +297,17 @@ class HomeWindow(Widget):
         filePath = path.join("cache", fileName)
 
         if not path.isfile(filePath):
-            request = requests.get(url)
-            if request.ok:
-                content = request.content
-                file = open(filePath, "wb")
-                file.write(content)
-                file.close()
+            if webscraper.isConnected():
+                request = requests.get(url)
+                if request.ok:
+                    content = request.content
+                    file = open(filePath, "wb")
+                    file.write(content)
+                    file.close()
 
-                self.loadImageTexture(image, filePath)
+                    self.loadImageTexture(image, filePath)
+            else:
+                logging.info("Image Downloader: Download Failed - No Connection")
         else:
             self.loadImageTexture(image, filePath)
 
@@ -265,9 +335,23 @@ class HomeWindow(Widget):
     def setWidget(self, dt):
         self.ScrollSearchGrid = self.ids.ScrollSearchGrid.__self__
         self.ScrollAniGrid = self.ids.ScrollAniGrid.__self__
+        self.ScrollRecentGrid = self.ids.ScrollRecentGrid.__self__
+        self.ScrollBookmarkGrid = self.ids.ScrollBookmarkGrid.__self__
+        self.NoAnimeFound = self.ids.NoAnimeFound.__self__
+
+        self.MainScrollGrid = self.ids.ScrollAniGrid.__self__
+        self.OtherMainScrollGrid = self.ids.ScrollRecentGrid.__self__
+
+        gridLayout = self.ids.RecentGridLayout
+        gridLayout.clear_widgets()
 
         self.remove_widget(self.ids.PlaceHolder2)
+        self.remove_widget(self.ids.PlaceHolder3)
+        self.remove_widget(self.ids.PlaceHolder4)
         self.remove_widget(self.ScrollSearchGrid)
+        self.remove_widget(self.ScrollRecentGrid)
+        self.remove_widget(self.ScrollBookmarkGrid)
+        self.remove_widget(self.NoAnimeFound)
 
         searchBox = self.ids.TextInputSearchBox
         searchBox.bind(text=self.searchInputChanged)
@@ -275,8 +359,15 @@ class HomeWindow(Widget):
         # Fixes weird clipping issue on name label when using screen manager...
         self.remove_widget(self.ScrollAniGrid)
         self.add_widget(self.ScrollSearchGrid)
+        self.add_widget(self.ScrollRecentGrid)
+        self.add_widget(self.ScrollBookmarkGrid)
+        self.add_widget(self.NoAnimeFound)
+
         self.add_widget(self.ScrollAniGrid)
         self.remove_widget(self.ScrollSearchGrid)
+        self.remove_widget(self.ScrollRecentGrid)
+        self.remove_widget(self.ScrollBookmarkGrid)
+        self.remove_widget(self.NoAnimeFound)
 
         # self.SearchButtonToggle()
         # self.SearchButtonToggle()
@@ -286,9 +377,13 @@ class HomeWindow(Widget):
         def addWidgets(searchData, genreData):
             threadData = []
 
+            showCrying = True
             for i, data in enumerate(searchData):
+                showCrying = False
+
                 thumbnailUrl = data["thumbnail"]
 
+                rawNameExtra = data["nameExtra"]
                 if len(data["nameExtra"]) > 17:
                     data["nameExtra"] = data["nameExtra"][:17] + "..."
 
@@ -300,18 +395,28 @@ class HomeWindow(Widget):
                     genre=", ".join(genreData[i]),
                     imageSizeY=self.imageSizeY,
                     extraNames=data["nameExtra"],
+                    rawExtraNames=rawNameExtra,
                     fontSize=self.fontSize,
-                    data=data)
+                    data=data
+                )
 
                 gridLayout.add_widget(widget)
 
                 threadData.append((widget.ids.Thumbnail.__self__, thumbnailUrl))
+
+            if showCrying and self.NoAnimeFound.parent != self:
+                self.add_widget(self.NoAnimeFound)
+            elif not showCrying and self.NoAnimeFound.parent == self:
+                self.remove_widget(self.NoAnimeFound)
 
             self.updateAniWidgets(0, override=True)
 
             updateThread = threading.Thread(target=self.updateImageTextures, args=(threadData,), daemon=True)
             updateThread.start()
             threading.Thread(target=self.runSearchQueue, daemon=True).start()
+
+        if self.NoAnimeFound.parent == self:
+            self.remove_widget(self.NoAnimeFound)
 
         gridLayout = self.ids.SearchGridLayout
         gridLayout.clear_widgets()
@@ -326,39 +431,171 @@ class HomeWindow(Widget):
 
     def searchInputChanged(self, *args, reload=False):
         searchBox = self.ids.TextInputSearchBox
+        searchQuery = searchBox.text
 
-        if searchBox.opacity == 1:
-            searchQuery = searchBox.text
+        if searchBox.opacity == 1 and self.OldSearchText != searchQuery:
+            self.OldSearchText = searchQuery
 
-            if len(searchQuery) >= 3:
-                if self.ScrollAniGrid.parent == self:
-                    self.remove_widget(self.ScrollAniGrid)
+            if not self.bookmarkMode:
+                if len(searchQuery) >= 3:
+                    if self.MainScrollGrid.parent == self:
+                        self.remove_widget(self.MainScrollGrid)
+                    if self.OtherMainScrollGrid.parent == self:
+                        self.remove_widget(self.OtherMainScrollGrid)
 
-                if self.ScrollSearchGrid.parent != self:
-                    self.add_widget(self.ScrollSearchGrid)
+                    if self.ScrollSearchGrid.parent != self:
+                        self.add_widget(self.ScrollSearchGrid)
+                    if self.ScrollBookmarkGrid.parent == self:
+                        self.remove_widget(self.ScrollBookmarkGrid)
 
-                if not reload:
-                    with self.searchQueue.mutex:
-                        self.searchQueue.queue.clear()
+                    self.ids.HistoryButton.opacity = 0
+                    self.ids.HistoryButton.disabled = True
 
-                    thread = threading.Thread(target=self.searchData, args=(searchQuery,), daemon=True)
-                    self.searchQueue.put(thread)
+                    if not reload:
+                        with self.searchQueue.mutex:
+                            self.searchQueue.queue.clear()
 
-                    if self.searchQueue.qsize() == 1 and not (
-                            self.latestSearchThread and self.latestSearchThread.is_alive):
-                        self.runSearchQueue()
+                        thread = threading.Thread(target=self.searchData, args=(searchQuery,), daemon=True)
+                        self.searchQueue.put(thread)
 
+                        if self.searchQueue.qsize() == 1 and not (
+                                self.latestSearchThread and self.latestSearchThread.is_alive):
+                            self.runSearchQueue()
+
+                else:
+                    if self.MainScrollGrid.parent != self:
+                        self.add_widget(self.MainScrollGrid)
+                    if self.OtherMainScrollGrid.parent == self:
+                        self.remove_widget(self.OtherMainScrollGrid)
+
+                    if self.ScrollSearchGrid.parent == self:
+                        self.remove_widget(self.ScrollSearchGrid)
+                    if self.ScrollBookmarkGrid.parent == self:
+                        self.remove_widget(self.ScrollBookmarkGrid)
+
+                    self.ids.HistoryButton.opacity = 1
+                    self.ids.HistoryButton.disabled = False
             else:
-                if self.ScrollAniGrid.parent != self:
-                    self.add_widget(self.ScrollAniGrid)
-
+                if self.MainScrollGrid.parent == self:
+                    self.remove_widget(self.MainScrollGrid)
+                if self.OtherMainScrollGrid.parent == self:
+                    self.remove_widget(self.OtherMainScrollGrid)
                 if self.ScrollSearchGrid.parent == self:
                     self.remove_widget(self.ScrollSearchGrid)
+
+                if self.ScrollBookmarkGrid.parent != self:
+                    self.add_widget(self.ScrollBookmarkGrid)
+
+                self.ids.HistoryButton.opacity = 0
+                self.ids.HistoryButton.disabled = True
+
+                self.RefreshBookmarkedAni(searchQuery=searchQuery, override=True)
+
+    def RefreshRecentlyWatched(self, *args):
+        storedData = JsonStore("data.json")
+        recentlyWatchedData = GetDataStore(storedData, "RecentlyWatched", default={})
+
+        if self.oldRecentWatch != recentlyWatchedData:
+            self.oldRecentWatch = recentlyWatchedData
+
+            gridLayout = self.ids.RecentGridLayout
+            gridLayout.clear_widgets()
+
+            rawData = []
+
+            # To Prevent Object Linking when appending name to the epData location
+            for name, aniEpsData in copy.deepcopy(self.oldRecentWatch).items():
+                for _, epData in aniEpsData.items():
+                    if not epData[7]:
+                        epData.append(name)
+                        rawData.append(epData)
+
+            rawData = sorted(rawData, key=lambda data: data[0], reverse=True)
+            threadData = []
+
+            for data in rawData:
+                epNum = 0
+                try:
+                    epNum = float(data[2])
+                    epNum = int(epNum)
+                except:
+                    pass
+
+                widget = AniWidget(width=self.aniWidgetWidth,
+                                   height=self.aniWidgetHeight,
+                                   thumbnailUrl=data[3],
+                                   aniText=data[1],
+                                   imageSizeY=self.imageSizeY,
+                                   episodeNumber=epNum,
+                                   fontSize=self.fontSize,
+                                   restoreLink=data[4],
+                                   specialData=data)
+
+                gridLayout.add_widget(widget)
+
+                threadData.append((widget.ids.Thumbnail, data[3]))
+
+            self.updateAniWidgets(0, override=True)
+            threading.Thread(target=self.updateImageTextures, args=(threadData,), daemon=True).start()
+
+    def RefreshBookmarkedAni(self, *args, searchQuery="", override=False):
+        storedData = JsonStore("data.json")
+        recentlyBookmarkedAni = GetDataStore(storedData, "BookmarkData", default={})
+        aniData = GetDataStore(storedData, "AniData", default={})
+        recentlyWatched = GetDataStore(storedData, "RecentlyWatched", default={})
+
+        searchQuerySplit = searchQuery.lower().split(" ")
+        if self.oldBookmarkedAni != recentlyBookmarkedAni or override:
+            self.oldBookmarkedAni = recentlyBookmarkedAni
+
+            if self.NoAnimeFound.parent == self:
+                self.remove_widget(self.NoAnimeFound)
+
+            gridLayout = self.ids.BookmarkGridLayout
+            gridLayout.clear_widgets()
+
+            threadData = []
+            showCrying = True
+            for bookmarkName, bookmarkData in self.oldBookmarkedAni.items():
+                overallSearch = (bookmarkData[2] + bookmarkData[4]).lower()
+
+                if not bookmarkData[0] or not all(query in overallSearch for query in searchQuerySplit):
+                    continue
+
+                showCrying = False
+
+                maxEp = aniData[bookmarkName][0] if bookmarkName in aniData else 0
+                watchedData = recentlyWatched[bookmarkName] if bookmarkName in recentlyWatched else {}
+
+                widget = SearchAniWidget(
+                    width=self.aniWidgetWidth,
+                    height=self.aniWidgetHeight,
+                    thumbnailUrl=bookmarkData[1],
+                    aniText=bookmarkData[2],
+                    genre="",
+                    imageSizeY=self.imageSizeY,
+                    extraNames=f"{len(watchedData.keys())}/{maxEp}",
+                    fontSize=self.fontSize,
+                    data={"ani": bookmarkData[3]}
+                )
+
+                gridLayout.add_widget(widget)
+
+                threadData.append((widget.ids.Thumbnail.__self__, bookmarkData[1]))
+
+            if showCrying and self.NoAnimeFound.parent != self:
+                self.add_widget(self.NoAnimeFound)
+            elif not showCrying and self.NoAnimeFound.parent == self:
+                self.remove_widget(self.NoAnimeFound)
+
+            threading.Thread(target=self.updateImageTextures, args=(threadData,), daemon=True).start()
+
+            self.updateAniWidgets(0, override=True)
 
     # --- Callback Methods ---
     def AboutButtonClicked(self):
         size = Window.size
-        
+
         button = Button(
             text='Phoenix Anistream is an anime streaming app that allows users to search and watch anime. There are no ads and interruptions. Have Fun :)'
                  '\n\n[color=#8AB4F8][i][u][ref=https://discord.gg/MycXAEfcRr]Phoenix Anistream Support Server[/ref][/u][/i][/color]'
@@ -384,9 +621,51 @@ class HomeWindow(Widget):
         button.bind(on_release=popup.dismiss)
         popup.open()
 
-    def SearchButtonToggle(self, skip=False):
+    def HistoryButtonClicked(self):
+        if self.MainScrollGrid.parent == self:
+            self.remove_widget(self.MainScrollGrid)
+            self.add_widget(self.OtherMainScrollGrid)
+
+        self.ids.HistoryButton.clicked = not self.ids.HistoryButton.clicked
+        self.MainScrollGrid, self.OtherMainScrollGrid = self.OtherMainScrollGrid, self.MainScrollGrid
+
+        self.updateAniWidgets(0, override=True)
+
+    def ViewBookmarkButtonToggle(self, override=False):
+        self.ids.ViewBookmarkButton.clicked = not self.ids.ViewBookmarkButton.clicked
+        if not override:
+            self.bookmarkMode = not self.bookmarkMode
+
+        if self.bookmarkMode:
+            if self.MainScrollGrid.parent == self:
+                self.remove_widget(self.MainScrollGrid)
+            if self.OtherMainScrollGrid.parent == self:
+                self.remove_widget(self.OtherMainScrollGrid)
+            if self.ScrollSearchGrid.parent == self:
+                self.remove_widget(self.ScrollSearchGrid)
+            if self.ScrollBookmarkGrid.parent != self:
+                self.add_widget(self.ScrollBookmarkGrid)
+        else:
+            if self.MainScrollGrid.parent != self:
+                self.add_widget(self.MainScrollGrid)
+            if self.OtherMainScrollGrid.parent == self:
+                self.remove_widget(self.OtherMainScrollGrid)
+            if self.ScrollSearchGrid.parent != self:
+                self.add_widget(self.ScrollSearchGrid)
+
+            if self.ScrollBookmarkGrid.parent == self:
+                self.remove_widget(self.ScrollBookmarkGrid)
+
+        self.SearchButtonToggle(overrideValue=False)
+        self.updateAniWidgets(0, override=True)
+
+    def SearchButtonToggle(self, skip=False, overrideValue=None):
         if not skip:
             self.searchToggle = not self.searchToggle
+
+        if overrideValue is not None:
+            self.searchToggle = overrideValue
+            skip = True
 
         duration = 0 if skip else 0.2
 
@@ -395,15 +674,28 @@ class HomeWindow(Widget):
         searchButton = self.ids.SearchButton
         backButton = self.ids.BackButton
 
+        if not self.searchToggle and not skip:
+            self.bookmarkMode = False
+            self.ViewBookmarkButtonToggle(override=True)
+
+            if self.NoAnimeFound.parent == self:
+                self.remove_widget(self.NoAnimeFound)
+
         if not skip:
             if self.searchToggle:
                 searchBox.text = ""
+
             else:
-                if self.ScrollAniGrid.parent != self:
-                    self.add_widget(self.ScrollAniGrid)
+                if self.MainScrollGrid.parent != self:
+                    self.add_widget(self.MainScrollGrid)
+                if self.OtherMainScrollGrid.parent == self:
+                    self.remove_widget(self.OtherMainScrollGrid)
 
                 if self.ScrollSearchGrid.parent == self:
                     self.remove_widget(self.ScrollSearchGrid)
+
+                self.ids.HistoryButton.opacity = 1
+                self.ids.HistoryButton.disabled = False
 
         size = Window.size
 
@@ -418,7 +710,7 @@ class HomeWindow(Widget):
                                   duration=duration)
             titleAnim.start(titleNameWidget)
 
-            searchBoxAnim = Animation(x=size[0] * 0.075, width=size[0] * 0.8, opacity=1, duration=duration)
+            searchBoxAnim = Animation(x=size[0] * 0.075, width=size[0] * 0.75, opacity=1, duration=duration)
             searchBoxAnim.start(searchBox)
             searchBox.readonly = False
         else:
@@ -432,7 +724,7 @@ class HomeWindow(Widget):
                                   duration=duration)
             titleAnim.start(titleNameWidget)
 
-            searchBoxAnim = Animation(x=size[0] * 0.9, width=0, opacity=0, duration=duration)
+            searchBoxAnim = Animation(x=size[0] * (0.75+0.075), width=0, opacity=0, duration=duration)
             searchBoxAnim.start(searchBox)
             searchBox.readonly = True
 
@@ -440,8 +732,26 @@ class HomeWindow(Widget):
         if instance.data:
             self.parent.manager.transition.direction = 'down'
             self.parent.manager.current = "AniInfoWindow"
+        
+            self.infoWindowWidget.generateAniData(instance.data["ani"], instance.rawExtraNames)
 
-            self.infoWindowWidget.generateAniData(instance.data["ani"])
+        elif instance.restoreLink:
+            self.parent.manager.transition.direction = 'down'
+            self.parent.manager.current = "VideoPlayer"
+            data = instance.specialData
+
+            self.videoWindow.initiate(EpisodeWidget(
+                episodeNumber=str(instance.episodeNumber),
+                title=f"{data[1]} Episode {instance.episodeNumber}",
+                name=data[1],
+                colour="#ffffff",
+                view=data[4],
+                aniTitle=data[-1],
+                thumbnailSource=data[3],
+                aniTitleGood=data[1],
+                aniUrl=data[5], 
+                maxEpNum=data[6]
+            ), recentBypass=True)
 
 
 class InfoWindow(Widget):
@@ -454,8 +764,12 @@ class InfoWindow(Widget):
     spacingX = NumericProperty(20)
 
     placeholderExists = True
+    aniRawName = ""
+    aniUrl = ""
+    extraNames = ""
 
     videoWindow = None
+    aniData = None
 
     def BackArrowPressed(self):
         self.parent.manager.transition.direction = 'up'
@@ -466,20 +780,30 @@ class InfoWindow(Widget):
         self.aniName = ""
         self.ids.Thumbnail.source = "loading.gif"
 
+        self.aniRawName = ""
+        self.extraNames = ""
+        self.aniData = None
+
+        self.ids.BookmarkButton.clicked = False
+        self.ids.EpisodeCounter.text = "0/0"
+        
     def updateImageTexture(self, data):
         image, url = data
         fileName = url.split("/")[-1]
         filePath = path.join("cache", fileName)
 
         if not path.isfile(filePath):
-            request = requests.get(url)
-            if request.ok:
-                content = request.content
-                file = open(filePath, "wb")
-                file.write(content)
-                file.close()
+            if webscraper.isConnected():
+                request = requests.get(url)
+                if request.ok:
+                    content = request.content
+                    file = open(filePath, "wb")
+                    file.write(content)
+                    file.close()
 
-                self.loadImageTexture(image, filePath)
+                    self.loadImageTexture(image, filePath)
+            else:
+                logging.info("Image Downloader: Download Failed - No Connection")
         else:
             self.loadImageTexture(image, filePath)
 
@@ -543,8 +867,20 @@ class InfoWindow(Widget):
         descriptionId.descriptionHeight = adjHeight
         descriptionId.descriptionHeightOffset = episodeInput.y + episodeInput.height + (0.05 * height)
 
-        self.ids.RelLayout.height = episodeGridLayout.minimum_height + episodeInput.height + descriptionId.height + self.ids.Thumbnail.height + (
-                    0.05 * 3 * height)
+        thumbnail = self.ids.Thumbnail
+
+        episodeCounter = self.ids.EpisodeCounter
+        episodeCounter.y = thumbnail.y - (0.05 * height) - episodeCounter.height
+
+        bookmarkButton = self.ids.BookmarkButton
+        bookmarkButton.y = thumbnail.y - (0.05 * height) - bookmarkButton.height
+
+        self.ids.RelLayout.height = episodeGridLayout.minimum_height + \
+                                    episodeInput.height + \
+                                    descriptionId.height + \
+                                    episodeCounter.height + \
+                                    self.ids.Thumbnail.height + (
+                    0.05 * 4 * height)
         episodeGridLayout.y = 0
 
     def searchClicked(self):
@@ -556,9 +892,29 @@ class InfoWindow(Widget):
             if int(widget.ids.ButtonWidget.text or '-1') == int(episodeInput.ids.EpisodeInputInput.text or '-2'):
                 scrollSearchGrid.scroll_to(widget)
 
-    def generateAniData(self, aniUrl):
+    def BookmarkClicked(self, refresh=False):
+        storedData = JsonStore("data.json")
+        bookmarkData = GetDataStore(storedData, "BookmarkData", default={})
+
+        bookmarkInfo = self.aniRawName in bookmarkData and bookmarkData[self.aniRawName] or [False, self.aniData[1], self.aniData[0], self.aniUrl, self.extraNames, time()]
+        bookmarkInfo[5] = time()
+
+        if not refresh:
+            bookmarkInfo[0] = not bookmarkInfo[0]
+
+        bookmarkData[self.aniRawName] = bookmarkInfo
+
+        if not bookmarkInfo[0]:
+            del bookmarkData[self.aniRawName]
+
+        storedData["BookmarkData"] = bookmarkData
+
+        self.ids.BookmarkButton.clicked = bookmarkInfo[0]
+
+    def generateAniData(self, aniUrl, extraNames):
         def loadAniData(url):
             data = webscraper.GetAniData(aniUrl)
+            self.aniData = data
 
             episodeGridLayout = self.ids.EpisodeGridLayout
             episodeGridLayout.clear_widgets()
@@ -567,14 +923,19 @@ class InfoWindow(Widget):
                 return
 
             self.aniName = data[0]
+            self.aniRawName = data[4]
 
             descriptionId = self.ids.description
             descriptionId.textDescription = data[2]
             self.refreshDescription()
 
             if self.placeholderExists:
-                episodePlaceHolder = self.ids.EpisodePlaceHolder
-                episodeGridLayout.remove_widget(episodePlaceHolder)
+                try:
+                    episodePlaceHolder = self.ids.EpisodePlaceHolder
+                    episodeGridLayout.remove_widget(episodePlaceHolder)
+                except:
+                    pass
+
                 self.placeholderExists = False
 
             titleAlready = []
@@ -584,6 +945,17 @@ class InfoWindow(Widget):
             extra = 0
 
             epData = []
+
+            storedData = JsonStore("data.json")
+            recentlyWatchedData = GetDataStore(storedData, "RecentlyWatched", default={})
+            aniRecentData = recentlyWatchedData[data[4]] if data[4] in recentlyWatchedData else {}
+
+            aniData = GetDataStore(storedData, "AniData", default={})
+            aniData[data[4]] = [len(data[3])]
+            storedData["AniData"] = aniData
+
+            self.BookmarkClicked(refresh=True)
+
             for episodeData in data[3]:
                 # Not sure for this part..
                 if True or self.aniName in episodeData["title"]:
@@ -642,6 +1014,11 @@ class InfoWindow(Widget):
                         name=episodeData["name"],
                         colour=episodeData["colour"],
                         view=episodeData["view"],
+                        aniTitle=data[4],
+                        thumbnailSource=data[1],
+                        aniTitleGood=data[0],
+                        aniUrl=aniUrl,
+                        maxEpNum=len(epData)
                     )
 
                     episodeGridLayout.add_widget(newEp)
@@ -655,16 +1032,57 @@ class InfoWindow(Widget):
             threading.Thread(target=self.updateImageTextures, args=([(self.ids.Thumbnail.__self__, data[1])],),
                              daemon=True).start()
 
+        self.aniUrl = aniUrl
+        self.extraNames = extraNames
         loadThread = threading.Thread(target=loadAniData, args=(aniUrl,), daemon=True)
         loadThread.start()
 
+    def refreshEpisodeColours(self, *args):
+        storedData = JsonStore("data.json")
+        recentlyWatchedData = GetDataStore(storedData, "RecentlyWatched", default={})
+        aniRecentData = recentlyWatchedData[self.aniRawName] if self.aniRawName in recentlyWatchedData else {}
+        
+        episodeGridLayout = self.ids.EpisodeGridLayout
+
+        aniData = GetDataStore(storedData, "AniData", default={})
+        maxEps = self.aniRawName in aniData and aniData[self.aniRawName][0] or 0
+        self.ids.EpisodeCounter.text = f"{len(aniRecentData.keys())}/{maxEps}"
+
+        for widget in episodeGridLayout.children:
+            widget.isHighlighted = widget.episodeNumber in aniRecentData
+        
     def EpisodeButtonPressed(self, instance):
         self.parent.manager.transition.direction = 'down'
         self.parent.manager.current = "VideoPlayer"
 
         self.videoWindow.initiate(instance)
+        
+    def EpisodeButtonPressedLong(self, instance):
+        storedData = JsonStore("data.json")
+        recentlyWatchedData = GetDataStore(storedData, "RecentlyWatched", default={})
 
+        if self.aniRawName not in recentlyWatchedData:
+            recentlyWatchedData[self.aniRawName] = {}
 
+        if instance.episodeNumber in recentlyWatchedData[self.aniRawName]:
+            del recentlyWatchedData[self.aniRawName][str(instance.episodeNumber)]
+        
+        else:
+            recentlyWatchedData[self.aniRawName][str(instance.episodeNumber)] = [
+                time(),
+                instance.aniTitleGood,
+                instance.episodeNumber,
+                instance.thumbnailSource,
+                instance.view,
+                instance.aniUrl, 
+                instance.maxEpNum,
+                True
+            ]
+
+        storedData["RecentlyWatched"] = recentlyWatchedData
+        self.refreshEpisodeColours()
+        
+    
 class VideoWindow(Widget):
     title = StringProperty("")
     name = StringProperty("")
@@ -693,16 +1111,21 @@ class VideoWindow(Widget):
 
     lackingEnabled = False
     isLacking = False
-    
+
     pinned = False
     appTitle = ""
+    recentBypass = False
 
-    def initiate(self, episodeInstance):
+    infoWindow = None
+    viewLink = ""
+
+    def initiate(self, episodeInstance, recentBypass=False):
         def loadVideo(mainWidget, videoWidget, episodeInstance):
             def episodeError(instance):
                 instance.mainWidget.Android_back_click(None, 27)
 
             finalUrls = webscraper.extractVideoFiles(episodeInstance.view)
+            finalUrls = sorted(finalUrls, key=lambda data: int(data[1].split("x")[0]))
 
             if not len(finalUrls):
                 button = Button(
@@ -745,8 +1168,26 @@ class VideoWindow(Widget):
 
                     storedData = JsonStore("data.json")
 
-                    data = GetDataStore(storedData, "ResumeData", default={})
-                    timePos = data.get(episodeInstance.title, None)
+                    resumeData = GetDataStore(storedData, "ResumeData", default={})
+                    timePos = resumeData.get(episodeInstance.title, None)
+
+                    recentlyWatchedData = GetDataStore(storedData, "RecentlyWatched", default={})
+
+                    aniTitle = episodeInstance.aniTitle
+                    if aniTitle not in recentlyWatchedData:
+                        recentlyWatchedData[aniTitle] = {}
+
+                    recentlyWatchedData[aniTitle][str(episodeInstance.episodeNumber)] = [
+                        time(),
+                        episodeInstance.aniTitleGood,
+                        episodeInstance.episodeNumber,
+                        episodeInstance.thumbnailSource,
+                        episodeInstance.view,
+                        episodeInstance.aniUrl, 
+                        episodeInstance.maxEpNum,
+                        False
+                    ]
+                    storedData["RecentlyWatched"] = recentlyWatchedData
 
                     if timePos and not self.isLacking:
                         mainWidget.TogglePlayPause(bypass=True, forceRefresh=True, overridePlayPosition=max(timePos-5, 0))
@@ -772,6 +1213,8 @@ class VideoWindow(Widget):
                     popup.open()
 
         video = self.ids.VideoWidget
+        self.recentBypass = recentBypass
+        self.viewLink = episodeInstance.aniUrl
         # video.state = "play"
 
         self.ids.DurationSlider.bind(value=self.SliderDurationValueChanged)
@@ -812,6 +1255,11 @@ class VideoWindow(Widget):
                 self.parent.manager.transition.direction = 'up'
                 self.parent.manager.current = "AniInfoWindow"
 
+                if self.recentBypass:
+                    self.infoWindow.generateAniData(self.viewLink)
+
+                self.viewLink = ""
+
                 self.title = ""
                 self.name = ""
                 self.positionDurationString = "0"
@@ -831,6 +1279,7 @@ class VideoWindow(Widget):
                 self.finalUrls = []
 
                 self.rowClicked = False
+                self.recentBypass = False
 
                 if platform == "win":
                     self.pinned = False
@@ -916,7 +1365,7 @@ class VideoWindow(Widget):
 
         if self.lackingEnabled:
             self.ids.Lacking.pos = (0, 0) if self.isLacking else (width*2, height*2)
-            
+
             if self.isLacking:
                 self.ids.VideoWidget.state = "pause"
 
@@ -1043,7 +1492,7 @@ class VideoWindow(Widget):
                     currentNormalValue = overridePlayPosition / video.duration
 
                 oldSource = overrideSource or video.source
-                
+
                 video.state = "pause"
                 video.source = ""
                 video.source = oldSource
@@ -1072,9 +1521,11 @@ class AniApp(App):
         infoWindow = windowManager.ids.InfoWindow
         videoWindow = windowManager.ids.VideoWindow
         videoWindow.appTitle = self.title
+        videoWindow.infoWindow = infoWindow
         self.videoWindow = videoWindow
         homeWindow.infoWindowWidget = infoWindow
         infoWindow.videoWindow = videoWindow
+        homeWindow.videoWindow = videoWindow
         # homeWindow = HomeWindow()
 
         Clock.schedule_once(homeWindow.updateLatestAniData, 0)
@@ -1082,8 +1533,11 @@ class AniApp(App):
 
         Clock.schedule_interval(homeWindow.updateVars, 1 / 30)
         Clock.schedule_interval(homeWindow.updateAniWidgets, 1 / 60)
+        Clock.schedule_interval(homeWindow.RefreshRecentlyWatched, 1)
+        Clock.schedule_interval(homeWindow.RefreshBookmarkedAni, 1)
 
         Clock.schedule_interval(infoWindow.refreshDescription, 1 / 60)
+        Clock.schedule_interval(infoWindow.refreshEpisodeColours, 1 / 2)
         # Clock.schedule_interval(infoWindow.updateVars, 1/30)
         # Clock.schedule_interval(homeWindow.pollSearchInput, 1/10)
 

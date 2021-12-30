@@ -100,8 +100,13 @@ def GetLatestDataAnimeDaoTo(mode="gogoanime") -> list:
                 for liTag in items.find_all("li"):
                     imageSrc = liTag.find("img")["src"]
                     name = liTag.find("a")["title"]
-                    episode = int(liTag.find("p", {"class": "episode"}).text.split(" ")[-1])
-
+                    
+                    try:
+                        episode = int(liTag.find("p", {"class": "episode"}).text.split(" ")[-1])
+                    except ValueError:
+                        logging.info(f"Webscraper Latest: {name} Has Non-Integer Episode")
+                        continue
+                    
                     aniName = ".".join(imageSrc.split("/")[-1].split(".")[:-1])
                     aniSource = f"https://www1.gogoanime.cm/category/{aniName}"
 
@@ -282,7 +287,11 @@ def GetAniData(aniUrl):
 
                 title = "-".join(tree.title.text.split("-")[:-1]).strip()
 
-                return title, icon, description, episodeData
+                aniUrlTitle = aniUrl.split("/")[-1]
+                if aniUrlTitle[-1] == "/":
+                    aniUrlTitle = aniUrlTitle[:-1]
+
+                return title, icon, description, episodeData, aniUrlTitle
 
             elif mode == "gogoanime":
                 animeInfoTag = tree.find("div", {"class": "anime_info_body_bg"})
@@ -308,7 +317,11 @@ def GetAniData(aniUrl):
 
                 episodeData = [{"view": f"{baseEpisodeUrl}-{i}", "title": f"{title} Episode {i}", "name": ""} for i in range(startEp, maxEp+1)]
 
-                return title, icon, description, episodeData
+                aniUrlTitle = aniUrl.split("/")[-1]
+                if aniUrlTitle[-1] == "/":
+                    aniUrlTitle = aniUrlTitle[:-1]
+
+                return title, icon, description, episodeData, aniUrlTitle
 
     else:
         logging.info(f"Webscraper: Anime Info - No Connection")
@@ -386,8 +399,6 @@ def extractVideoFiles(aniEpUrl, repeat=5, currentRepeat=0):
                     elif urlBasePath == "dl":
                         if not tree.find("b", {"class": "err"}):
                             aTags = tree.find_all("a")
-                            aTexts = [aTag.text for aTag in aTags]
-                            #print(aTexts)
                             downloadA = [aTag["href"] for aTag in aTags if aTag.text == "Direct Download Link"][0]
 
                             newUrl = downloadA
