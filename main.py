@@ -345,6 +345,7 @@ class HomeWindow(Widget):
         gridLayout = self.ids.RecentGridLayout
         gridLayout.clear_widgets()
 
+        self.remove_widget(self.ids.PlaceHolder)
         self.remove_widget(self.ids.PlaceHolder2)
         self.remove_widget(self.ids.PlaceHolder3)
         self.remove_widget(self.ids.PlaceHolder4)
@@ -404,7 +405,7 @@ class HomeWindow(Widget):
 
                 threadData.append((widget.ids.Thumbnail.__self__, thumbnailUrl))
 
-            if showCrying and self.NoAnimeFound.parent != self:
+            if showCrying and self.NoAnimeFound.parent != self and self.ScrollSearchGrid.parent == self :
                 self.add_widget(self.NoAnimeFound)
             elif not showCrying and self.NoAnimeFound.parent == self:
                 self.remove_widget(self.NoAnimeFound)
@@ -472,6 +473,9 @@ class HomeWindow(Widget):
                         self.remove_widget(self.ScrollSearchGrid)
                     if self.ScrollBookmarkGrid.parent == self:
                         self.remove_widget(self.ScrollBookmarkGrid)
+
+                    if self.NoAnimeFound.parent == self:
+                        self.remove_widget(self.NoAnimeFound)
 
                     self.ids.HistoryButton.opacity = 1
                     self.ids.HistoryButton.disabled = False
@@ -584,10 +588,14 @@ class HomeWindow(Widget):
 
                 threadData.append((widget.ids.Thumbnail.__self__, bookmarkData[1]))
 
-            if showCrying and self.NoAnimeFound.parent != self:
-                self.add_widget(self.NoAnimeFound)
-            elif not showCrying and self.NoAnimeFound.parent == self:
-                self.remove_widget(self.NoAnimeFound)
+            if searchQuery == "":
+                showCrying = False
+
+            if self.ScrollBookmarkGrid.parent == self:
+                if showCrying and self.NoAnimeFound.parent != self:
+                    self.add_widget(self.NoAnimeFound)
+                elif not showCrying and self.NoAnimeFound.parent == self:
+                    self.remove_widget(self.NoAnimeFound)
 
             threading.Thread(target=self.updateImageTextures, args=(threadData,), daemon=True).start()
 
@@ -627,8 +635,11 @@ class HomeWindow(Widget):
             self.remove_widget(self.MainScrollGrid)
             self.add_widget(self.OtherMainScrollGrid)
 
-        self.ids.HistoryButton.clicked = not self.ids.HistoryButton.clicked
         self.MainScrollGrid, self.OtherMainScrollGrid = self.OtherMainScrollGrid, self.MainScrollGrid
+        self.ids.HistoryButton.clicked = self.MainScrollGrid == self.ScrollRecentGrid
+
+        if self.ids.HistoryButton.clicked and self.ids.ViewBookmarkButton.clicked:
+            self.ViewBookmarkButtonToggle()
 
         self.updateAniWidgets(0, override=True)
 
@@ -637,6 +648,10 @@ class HomeWindow(Widget):
             self.bookmarkMode = not self.bookmarkMode
 
         self.ids.ViewBookmarkButton.clicked = self.bookmarkMode
+
+        if self.ids.HistoryButton.clicked and self.ids.ViewBookmarkButton.clicked:
+            self.HistoryButtonClicked()
+
         self.RefreshBookmarkedAni(override=True)
             
         if self.bookmarkMode:
@@ -648,16 +663,23 @@ class HomeWindow(Widget):
                 self.remove_widget(self.ScrollSearchGrid)
             if self.ScrollBookmarkGrid.parent != self:
                 self.add_widget(self.ScrollBookmarkGrid)
+
         else:
             if self.MainScrollGrid.parent != self:
                 self.add_widget(self.MainScrollGrid)
             if self.OtherMainScrollGrid.parent == self:
                 self.remove_widget(self.OtherMainScrollGrid)
             if self.ScrollSearchGrid.parent != self:
-                self.add_widget(self.ScrollSearchGrid)
+                self.remove_widget(self.ScrollSearchGrid)
 
             if self.ScrollBookmarkGrid.parent == self:
                 self.remove_widget(self.ScrollBookmarkGrid)
+
+            if self.NoAnimeFound.parent == self:
+                self.remove_widget(self.NoAnimeFound)
+
+        self.ids.HistoryButton.opacity = 1
+        self.ids.HistoryButton.disabled = False
 
         self.SearchButtonToggle(overrideValue=False)
         self.updateAniWidgets(0, override=True)
@@ -928,6 +950,7 @@ class InfoWindow(Widget):
 
             self.aniName = data[0]
             self.aniRawName = data[4]
+            self.extraNames = self.extraNames or data[5]
 
             descriptionId = self.ids.description
             descriptionId.textDescription = data[2]
@@ -1260,7 +1283,7 @@ class VideoWindow(Widget):
                 self.parent.manager.current = "AniInfoWindow"
 
                 if self.recentBypass:
-                    self.infoWindow.generateAniData(self.viewLink)
+                    self.infoWindow.generateAniData(self.viewLink, "")
 
                 self.viewLink = ""
 

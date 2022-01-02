@@ -291,13 +291,14 @@ def GetAniData(aniUrl):
                 if aniUrlTitle[-1] == "/":
                     aniUrlTitle = aniUrlTitle[:-1]
 
-                return title, icon, description, episodeData, aniUrlTitle
+                return title, icon, description, episodeData, aniUrlTitle, ""
 
             elif mode == "gogoanime":
                 animeInfoTag = tree.find("div", {"class": "anime_info_body_bg"})
                 title = animeInfoTag.find("h1").text.strip()
                 icon = animeInfoTag.find("img")["src"]
                 description = ""
+                nameExtra = ""
 
                 pTypeTags = tree.find_all("p", {"class": "type"})
                 for pType in pTypeTags:
@@ -305,6 +306,9 @@ def GetAniData(aniUrl):
 
                     if "plot summary" in lowerText:
                         description = pType.text[14:]
+
+                    if "other name" in lowerText:
+                        nameExtra = pType.text[12:]
 
                 episodePage = tree.find("ul", {"id": "episode_page"})
                 episodeStartStops = [(aTag["ep_start"], aTag["ep_end"]) for aTag in episodePage.find_all("a")]
@@ -321,12 +325,12 @@ def GetAniData(aniUrl):
                 if aniUrlTitle[-1] == "/":
                     aniUrlTitle = aniUrlTitle[:-1]
 
-                return title, icon, description, episodeData, aniUrlTitle
+                return title, icon, description, episodeData, aniUrlTitle, nameExtra
 
     else:
         logging.info(f"Webscraper: Anime Info - No Connection")
 
-    return None, None, None, None
+    return None, None, None, None, None
 
 
 def extractVideoFiles(aniEpUrl, repeat=5, currentRepeat=0):

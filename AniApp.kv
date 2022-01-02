@@ -139,6 +139,7 @@
     data: None
     restoreLink: None
     specialData: None
+    rawExtraNames: ""
 
     canvas.before:
         StencilPush
@@ -365,6 +366,14 @@
         allow_stretch: True
         state: "play"
         options: {"eos": "loop"}
+
+        canvas.after:
+            Color:
+                rgba: (0, 0, 0, 0) # 0.95
+
+            Rectangle:
+                pos: 0, 0
+                size: self.parent.size
 
     Label:
         canvas.before:
