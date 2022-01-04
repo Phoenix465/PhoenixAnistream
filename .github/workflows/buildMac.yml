@@ -1,0 +1,38 @@
+name: Build Mac App with PyInstaller
+
+on:
+  workflow_dispatch:
+    inputs:
+      tags:
+        description: 'Test Build Tags'
+jobs:
+  build:
+
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Install Python3 & Dependicies
+      run:  |
+        brew install python3
+        brew reinstall --build-bottle sdl2 sdl2_image sdl2_ttf sdl2_mixer
+        pip3 install --upgrade pip wheel setuptools
+        pip3 install Cython==0.29.10
+        pip3 install -r ${{ github.workspace }}/requirements.txt
+        pyinstaller --clean -y --dist ./dist/mac --workpath /tmp --windowed ${{ github.workspace }}/PhoenixAnistream.spec
+        cd dist
+        pushd mac
+        hdiutil create ./PhoenixAnistream.dmg -srcfolder PhoenixAnistream.app -ov
+        popd
+
+
+    - name: Copy Resource & UI File
+      run:  |
+        cp -R ${{ github.workspace }}/resources dist/windows/PhoenixAnistream
+        cp  ${{ github.workspace }}/AniApp.kv dist/windows/PhoenixAnistream
+
+    - uses: actions/upload-artifact@v2
+      with:
+        name: PhoenixAnistreamMacBuild
+        path: dist/PhoenixAnistream.app
