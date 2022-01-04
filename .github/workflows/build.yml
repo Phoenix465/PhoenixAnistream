@@ -20,8 +20,8 @@ jobs:
 
     - name: Copy Resource & UI File
       run:  |
-        Xcopy /E /I resources\ dist\windows
-        copy /a /y /v AniApp.kv dist\windows
+        cp -R resources\ dist\windows
+        cp  AniApp.kv dist\windows
 
     - uses: actions/upload-artifact@v2
       with:
