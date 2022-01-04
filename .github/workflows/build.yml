@@ -24,8 +24,3 @@ jobs:
     - name: Building with PyInstaller
       run: |
         pyinstaller --noconfirm PhoenixAnistream.spec
-        Xcopy /E /I resources\ dist\PhoenixAnistream\resources
-        copy /a /y /v AniApp.kv dist\PhoenixAnistream
-        
-        
-        
