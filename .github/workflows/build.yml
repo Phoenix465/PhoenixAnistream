@@ -18,7 +18,12 @@ jobs:
       with:
         path: .
 
+    - name: Copy Resource & UI File
+      run:  |
+        Xcopy /E /I resources\ dist\windows
+        copy /a /y /v AniApp.kv dist\windows
+
     - uses: actions/upload-artifact@v2
       with:
-        name: src
+        name: PhoenixAnistream
         path: dist/windows
