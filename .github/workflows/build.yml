@@ -1,26 +1,24 @@
-name: PyInstaller
+name: Build GUI exe with Pyinstaller
 
-on: [push]
-
+on:
+  workflow_dispatch:
+    inputs:
+      tags:
+        description: 'test build tags'
 jobs:
   build:
 
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v1
-    - name: Set up Python 3.7
-      uses: actions/setup-python@v1
+    - uses: actions/checkout@v2
+
+    - name: Package Application
+      uses: JackMcKew/pyinstaller-action-windows@main
       with:
-        python-version: 3.7
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install wheel
-        pip install pyinstaller
-        pip install kivy[full]
-        pip install requests
-        
-    - name: Building with PyInstaller
-      run: |
-        pyinstaller --noconfirm PhoenixAnistream.spec
+        path: .
+
+    - uses: actions/upload-artifact@v2
+      with:
+        name: PhoenixAnistream
+        path: dist/windows
