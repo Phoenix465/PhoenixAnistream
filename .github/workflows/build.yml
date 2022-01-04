@@ -1,6 +1,6 @@
 name: PyInstaller
 
-on: []
+on: [push]
 
 jobs:
   build:
