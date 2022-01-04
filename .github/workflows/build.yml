@@ -20,10 +20,10 @@ jobs:
 
     - name: Copy Resource & UI File
       run:  |
-        cp -R ${{ github.workspace }}/resources dist/windows
-        cp  ${{ github.workspace }}/AniApp.kv dist/windows
+        cp -R ${{ github.workspace }}/resources dist/windows/PhoenixAnistream
+        cp  ${{ github.workspace }}/AniApp.kv dist/windows/PhoenixAnistream
 
     - uses: actions/upload-artifact@v2
       with:
-        name: PhoenixAnistream
+        name: PhoenixAnistreamWindowsBuild
         path: dist/windows
