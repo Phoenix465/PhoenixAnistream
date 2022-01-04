@@ -160,7 +160,7 @@
     Image:
         id: Thumbnail
 
-        source: "loading.gif"
+        source: "resources/loading.gif"
         pos: 0, self.parent.size[1]*(1-self.parent.imageSizeY)
         size_hint: None, None
         size: self.parent.size[0], self.parent.size[1]*self.parent.imageSizeY
@@ -189,7 +189,7 @@
         text: self.parent.aniText + f"\n[color=A0A0A0]Episode {self.parent.episodeNumber}[/color]"
         valign: "top"
         halign: "center"
-        font_name: "Cyberbit.ttf"
+        font_name: "resources/Cyberbit.ttf"
         font_size: self.parent.fontSize
         markup: True
         #shorten: True
@@ -251,7 +251,7 @@
     Image:
         id: Thumbnail
 
-        source: "loading.gif"
+        source: "resources/loading.gif"
         pos: 0, self.parent.size[1]*(1-self.parent.imageSizeY)
         size_hint: None, None
         size: self.parent.size[0], self.parent.size[1]*self.parent.imageSizeY
@@ -280,7 +280,7 @@
         text: self.parent.aniText + f"\n[color=A0A0A0]{self.parent.extraNames}\n{self.parent.genre}[/color]"
         valign: "top"
         halign: "center"
-        font_name: "Cyberbit.ttf"
+        font_name: "resources/Cyberbit.ttf"
         font_size: self.parent.fontSize
         markup: True
         #shorten: True
@@ -310,7 +310,7 @@
     aniUrl: ""
     isHighlighted: False
     maxEpNum: 0
-    
+
     canvas.before:
         Color:
             rgb: hex("#000000")
@@ -346,9 +346,9 @@
         background_color: (0, 0, 0, 0)
         background_normal: ''
         back_color: (0, 0, 0, 0)
-            
+
         long_press_time: 0.25
-        
+
         on_short_press: root.parent.parent.parent.parent.EpisodeButtonPressed(root)
         on_long_press: root.parent.parent.parent.parent.EpisodeButtonPressedLong(root)
 
@@ -359,7 +359,7 @@
 
     Video:
         id: gif
-        source: 'crying.mp4'
+        source: 'resources/crying.mp4'
         pos: 0, 0
         size: self.parent.size
         size_hint: None, None
@@ -423,7 +423,7 @@
             pos: self.parent.pos
             size: self.parent.size
             size_hint: None, None
-            source: "search.png"
+            source: "resources/search.png"
             mipmap: True
 
     Button:
@@ -442,7 +442,7 @@
             pos: self.parent.pos
             size: self.parent.size
             size_hint: None, None
-            source: "bookmark.png"
+            source: "resources/bookmark.png"
             mipmap: True
 
     Button:
@@ -457,7 +457,7 @@
             pos: self.parent.pos
             size: self.parent.size
             size_hint: None, None
-            source: "about.png"
+            source: "resources/about.png"
             mipmap: True
 
     Button:
@@ -476,7 +476,7 @@
             pos: self.parent.pos
             size: self.parent.size
             size_hint: None, None
-            source: "history.png"
+            source: "resources/history.png"
             mipmap: True
 
     Button:
@@ -495,7 +495,7 @@
             pos: self.parent.pos
             size: self.parent.size
             size_hint: None, None
-            source: "backarrow.png"
+            source: "resources/backarrow.png"
             mipmap: True
 
     SearchInputBox:
@@ -506,7 +506,7 @@
         size: 0, root.height*0.08
         pos: root.width*0.9, root.height*(0.9 + 0.01)
         #pos: 200, root.height*(0.9 + 0.01)
-        
+
         opacity: 0
 
         cursor_color: (0.8, 0.8, 0.8, 1)
@@ -515,11 +515,11 @@
         background_color: (0,0,0,0)
 
         font_size: root.height/24
-        font_name: "Cyberbit.ttf"
+        font_name: "resources/Cyberbit.ttf"
 
         multiline: False
         readonly: True
-        
+
     ScrollView:
         id: ScrollAniGrid
         size: root.width, root.height*0.9
@@ -527,15 +527,15 @@
         size_hint: 1, None
         #effect_cls: "ScrollEffect"
         scroll_wheel_distance: 20
-        
+
         GridLayout:
             id: AniGridLayout
             size: root.width, root.height*0.9
             orientation: "lr-tb"
             size_hint: 1, None
-            
+
             height: self.minimum_height
-            
+
             cols: root.gridCols
             padding: root.padding
             spacing: root.spacingX, 40
@@ -674,7 +674,7 @@
             pos: self.parent.pos
             size: self.parent.size
             size_hint: None, None
-            source: "backarrow.png"
+            source: "resources/backarrow.png"
             #mipmap: True
 
     ScrollView:
@@ -695,14 +695,14 @@
             Image:
                 id: Thumbnail
 
-                source: "loading.gif"
+                source: "resources/loading.gif"
                 pos: self.parent.width/2 - (root.height*0.4/2), self.parent.height-(root.height*0.4 * 16/9)-(0.05*root.height)
                 size_hint: None, None
                 size: root.height*0.4, root.height*0.4 * 16/9
                 allow_stretch: True
                 keep_ratio: False
                 mipmap: True
-                            
+
                 canvas.before:
                     StencilPush
 
@@ -788,7 +788,7 @@
                         pos: self.parent.pos
                         size: self.parent.size[0], self.parent.size[1]
                         size_hint: None, None
-                        source: "search.png"
+                        source: "resources/search.png"
                         mipmap: True
 
 
@@ -880,7 +880,7 @@
             pos: self.parent.pos
             size: self.parent.size
             size_hint: None, None
-            source: "backarrow.png"
+            source: "resources/backarrow.png"
             mipmap: True
 
     Button:
@@ -899,7 +899,7 @@
             pos: self.parent.pos
             size: self.parent.size
             size_hint: None, None
-            source: "pin.png"
+            source: "resources/pin.png"
             mipmap: True
 
     FloatLayout:
@@ -1001,7 +1001,7 @@
             pos: self.parent.pos
             size: self.parent.size
             size_hint: None, None
-            source: "rows.png"
+            source: "resources/rows.png"
             mipmap: True
 
         GridLayout:
@@ -1047,7 +1047,7 @@
                 pos: self.parent.pos
                 size: self.parent.size
                 size_hint: None, None
-                source: "PauseButtonW.png"
+                source: "resources/PauseButtonW.png"
                 mipmap: True
 
     RoundedButton:
@@ -1078,5 +1078,5 @@
             pos: self.parent.pos
             size: self.parent.size
             size_hint: None, None
-            source: "lacking.png"
+            source: "resources/lacking.png"
             mipmap: True

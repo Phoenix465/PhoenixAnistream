@@ -1,6 +1,13 @@
+import os
+try:
+    os.mkdir("logs")
+except:
+    pass
+
 from kivy.config import Config
 Config.set('kivy', 'exit_on_escape', '0')
 Config.set('kivy', 'window_icon', 'PhoenixAniStream.png')
+Config.set('kivy', 'log_dir', os.path.join(os.path.split(os.path.abspath(__file__))[0], "logs"))
 Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
 Config.set('graphics', 'minimum_width', '320')
 Config.set('graphics', 'minimum_height', '180')
@@ -804,7 +811,7 @@ class InfoWindow(Widget):
         self.ids.description.textDescription = ""
         self.ids.EpisodeGridLayout.clear_widgets()
         self.aniName = ""
-        self.ids.Thumbnail.source = "loading.gif"
+        self.ids.Thumbnail.source = "resources/loading.gif"
 
         self.aniRawName = ""
         self.extraNames = ""
@@ -1353,7 +1360,7 @@ class VideoWindow(Widget):
             if self.ids.PinButton.opacity and platform == "win":
                 self.pinned = not self.pinned
 
-                self.ids.PinImage.source = self.pinned and "pinC.png" or "pin.png"
+                self.ids.PinImage.source = self.pinned and "resources/pinC.png" or "resources/pin.png"
 
                 if self.pinned:
                     register_topmost(Window, self.appTitle)
@@ -1363,7 +1370,7 @@ class VideoWindow(Widget):
                 self.touchButtonTouched()
 
         if reloadImage:
-            self.ids.PinImage.source = self.pinned and "pinC.png" or "pin.png"
+            self.ids.PinImage.source = self.pinned and "resources/pinC.png" or "resources/pin.png"
 
     def refreshPositionSlider(self, *args):
         def convertTimeToDuration(time):
@@ -1504,7 +1511,7 @@ class VideoWindow(Widget):
             else:
                 self.play = video.state == "play"
 
-            self.ids.PlayPauseButtonImage.source = not self.play and "PlayButtonW.png" or "PauseButtonW.png"
+            self.ids.PlayPauseButtonImage.source = not self.play and "resources/PlayButtonW.png" or "resources/PauseButtonW.png"
 
             video.state = self.play and "play" or "pause"
 
