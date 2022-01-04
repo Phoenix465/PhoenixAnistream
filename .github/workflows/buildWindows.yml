@@ -1,10 +1,10 @@
-name: Build GUI exe with Pyinstaller
+name: Build Windows App with PyInstaller
 
 on:
   workflow_dispatch:
     inputs:
       tags:
-        description: 'test build tags'
+        description: 'Test Build Tags'
 jobs:
   build:
 
