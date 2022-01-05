@@ -15,6 +15,7 @@ jobs:
     
     - name: Install Python3 & Dependicies
       run:  |
+        brew uninstall python@3.9
         brew reinstall python@3.7
         brew install --build-bottle sdl2 sdl2_image sdl2_ttf sdl2_mixer
         pip3 install --upgrade pip wheel setuptools
