@@ -60,6 +60,7 @@ jobs:
         sudo installer -package gstreamer-1.0-$GSTREAMER-x86_64.pkg -target /
         sudo installer -package gstreamer-1.0-devel-$GSTREAMER-x86_64.pkg -target /
         
+        sudo rm -rf /Library/Developer/CommandLineTools
         xcode-select --install
         
     - name: Install Pip Packages
