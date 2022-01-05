@@ -15,10 +15,11 @@ jobs:
     
     - name: Install Python 3.7
       run:  |
-        brew uninstall --ignore-dependencies python@3.9
+        brew uninstall python@3.9
         brew uninstall --ignore-dependencies python@3.8
         brew reinstall python@3.7
         echo 'export PATH="/usr/local/opt/python@3.7/bin:$PATH"' >> /Users/runner/.bash_profile
+        export PATH="$PATH:/usr/local/bin"
         export LDFLAGS="-L/usr/local/opt/python@3.7/lib"
         export PKG_CONFIG_PATH="/usr/local/opt/python@3.7/lib/pkgconfig"
     
@@ -29,6 +30,11 @@ jobs:
     
     - name: Kivy Frameworks
       run:  |
+        echo 'export PATH="/usr/local/opt/python@3.7/bin:$PATH"' >> /Users/runner/.bash_profile
+        export PATH="$PATH:/usr/local/bin"
+        export LDFLAGS="-L/usr/local/opt/python@3.7/lib"
+        export PKG_CONFIG_PATH="/usr/local/opt/python@3.7/lib/pkgconfig"
+        
         export CC=clang
         export CXX=clang
         export FFLAGS='-ff2c'
@@ -65,12 +71,22 @@ jobs:
         
     - name: Install Pip Packages
       run:  |
+        echo 'export PATH="/usr/local/opt/python@3.7/bin:$PATH"' >> /Users/runner/.bash_profile
+        export PATH="$PATH:/usr/local/bin"
+        export LDFLAGS="-L/usr/local/opt/python@3.7/lib"
+        export PKG_CONFIG_PATH="/usr/local/opt/python@3.7/lib/pkgconfig"
+        
         python-3.7 -m pip install --upgrade pip wheel setuptools
         python-3.7 install Cython
         cat  ${{ github.workspace }}/requirements.txt | cut -f1 -d"#" | sed '/^\s*$/d' | xargs -n 1 python-3.7 install
         
     - name: Package Application
       run:  |
+        echo 'export PATH="/usr/local/opt/python@3.7/bin:$PATH"' >> /Users/runner/.bash_profile
+        export PATH="$PATH:/usr/local/bin"
+        export LDFLAGS="-L/usr/local/opt/python@3.7/lib"
+        export PKG_CONFIG_PATH="/usr/local/opt/python@3.7/lib/pkgconfig"
+        
         python-3.7 -m PyInstaller --clean -y --dist ./dist/mac --workpath /tmp --windowed ${{ github.workspace }}/PhoenixAnistream.spec
         cd dist
         pushd mac
