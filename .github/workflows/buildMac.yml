@@ -15,11 +15,14 @@ jobs:
     
     - name: Install Python3 & Dependicies
       run:  |
-        brew install python3
+        brew reinstall python@3.7
         brew reinstall --build-bottle sdl2 sdl2_image sdl2_ttf sdl2_mixer
         pip3 install --upgrade pip wheel setuptools
         pip3 install Cython==0.29.10
         pip3 install -r ${{ github.workspace }}/requirements.txt
+        
+    - name: Package Application
+      run:  |
         pyinstaller --clean -y --dist ./dist/mac --workpath /tmp --windowed ${{ github.workspace }}/PhoenixAnistream.spec
         cd dist
         pushd mac
