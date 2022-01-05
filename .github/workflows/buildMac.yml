@@ -16,20 +16,57 @@ jobs:
     - name: Install Python 3.7
       run:  |
         brew uninstall python@3.9
+        brew uninstall python@3.8
         brew reinstall python@3.7
         echo 'export PATH="/usr/local/opt/python@3.7/bin:$PATH"' >> /Users/runner/.bash_profile
         export LDFLAGS="-L/usr/local/opt/python@3.7/lib"
         export PKG_CONFIG_PATH="/usr/local/opt/python@3.7/lib/pkgconfig"
-        
+    
     - name: Install Brew Packages
       run:  |
         brew install --build-bottle sdl2 sdl2_image sdl2_ttf sdl2_mixer
+        brew install pkg-config gstreamer
+    
+    - name: Kivy Frameworks
+      run:  |
+        export CC=clang
+        export CXX=clang
+        export FFLAGS='-ff2c'
+        export USE_SDL2=1
+        export USE_GSTREAMER=1
+
+        export SDL2=2.0.12
+        export SDL2_IMAGE=2.0.5
+        export SDL2_MIXER=2.0.4
+        export SDL2_TTF=2.0.15
+        export GSTREAMER=1.16.2
+
+        curl -O -L "https://www.libsdl.org/release/SDL2-$SDL2.dmg"
+        curl -O -L "https://www.libsdl.org/projects/SDL_image/release/SDL2_image-$SDL2_IMAGE.dmg"
+        curl -O -L "https://www.libsdl.org/projects/SDL_mixer/release/SDL2_mixer-$SDL2_MIXER.dmg"
+        curl -O -L "https://www.libsdl.org/projects/SDL_ttf/release/SDL2_ttf-$SDL2_TTF.dmg"
+        curl -O -L "https://gstreamer.freedesktop.org/data/pkg/osx/$GSTREAMER/gstreamer-1.0-$GSTREAMER-x86_64.pkg"
+        curl -O -L "https://gstreamer.freedesktop.org/data/pkg/osx/$GSTREAMER/gstreamer-1.0-devel-$GSTREAMER-x86_64.pkg"
+
+        hdiutil attach SDL2-$SDL2.dmg
+        sudo cp -a /Volumes/SDL2/SDL2.framework /Library/Frameworks/
+        hdiutil attach SDL2_image-$SDL2_IMAGE.dmg
+        sudo cp -a /Volumes/SDL2_image/SDL2_image.framework /Library/Frameworks/
+        hdiutil attach SDL2_ttf-$SDL2_TTF.dmg
+        sudo cp -a /Volumes/SDL2_ttf/SDL2_ttf.framework /Library/Frameworks/
+        hdiutil attach SDL2_mixer-$SDL2_MIXER.dmg
+        sudo cp -a /Volumes/SDL2_mixer/SDL2_mixer.framework /Library/Frameworks/
+
+        sudo installer -package gstreamer-1.0-$GSTREAMER-x86_64.pkg -target /
+        sudo installer -package gstreamer-1.0-devel-$GSTREAMER-x86_64.pkg -target /
+        
+        xcode-select --install
         
     - name: Install Pip Packages
       run:  |
         pip3 install --upgrade pip wheel setuptools
         pip3 install Cython
-        cat  ${{ github.workspace }}/requirements.txt | cut -f1 -d"#" | sed '/^\s*$/d' | xargs -n 1 pip install
+        cat  ${{ github.workspace }}/requirements.txt | cut -f1 -d"#" | sed '/^\s*$/d' | xargs -n 1 pip3 install
         
     - name: Package Application
       run:  |
