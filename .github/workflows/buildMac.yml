@@ -15,8 +15,9 @@ jobs:
     
     - name: Install Python 3.7
       run:  |
-        brew uninstall python@3.9
-        brew uninstall python@3.8
+        brew uninstall --ignore-dependencies python@3.9
+        brew uninstall --ignore-dependencies python@3.8
+        brew uninstall --ignore-dependencies python@2.7
         brew reinstall python@3.7
         echo 'export PATH="/usr/local/opt/python@3.7/bin:$PATH"' >> /Users/runner/.bash_profile
         export LDFLAGS="-L/usr/local/opt/python@3.7/lib"
@@ -64,13 +65,13 @@ jobs:
         
     - name: Install Pip Packages
       run:  |
-        pip3 install --upgrade pip wheel setuptools
-        pip3 install Cython
-        cat  ${{ github.workspace }}/requirements.txt | cut -f1 -d"#" | sed '/^\s*$/d' | xargs -n 1 pip3 install
+        python-3.7 -m pip install --upgrade pip wheel setuptools
+        python-3.7 install Cython
+        cat  ${{ github.workspace }}/requirements.txt | cut -f1 -d"#" | sed '/^\s*$/d' | xargs -n 1 python-3.7 install
         
     - name: Package Application
       run:  |
-        pyinstaller --clean -y --dist ./dist/mac --workpath /tmp --windowed ${{ github.workspace }}/PhoenixAnistream.spec
+        python-3.7 -m PyInstaller --clean -y --dist ./dist/mac --workpath /tmp --windowed ${{ github.workspace }}/PhoenixAnistream.spec
         cd dist
         pushd mac
         hdiutil create ./PhoenixAnistream.dmg -srcfolder PhoenixAnistream.app -ov
