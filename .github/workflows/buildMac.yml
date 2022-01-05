@@ -22,7 +22,7 @@ jobs:
         export PKG_CONFIG_PATH="/usr/local/opt/python@3.7/lib/pkgconfig"
         brew install --build-bottle sdl2 sdl2_image sdl2_ttf sdl2_mixer
         pip3 install --upgrade pip wheel setuptools
-        pip3 install Cython==0.29.10
+        pip3 install Cython
         pip3 install -r ${{ github.workspace }}/requirements.txt
         
     - name: Package Application
