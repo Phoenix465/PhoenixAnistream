@@ -16,7 +16,7 @@ jobs:
     - name: Install Python3 & Dependicies
       run:  |
         brew reinstall python@3.7
-        brew reinstall --build-bottle sdl2 sdl2_image sdl2_ttf sdl2_mixer
+        brew install --build-bottle sdl2 sdl2_image sdl2_ttf sdl2_mixer
         pip3 install --upgrade pip wheel setuptools
         pip3 install Cython==0.29.10
         pip3 install -r ${{ github.workspace }}/requirements.txt
