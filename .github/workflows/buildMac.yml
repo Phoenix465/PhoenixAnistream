@@ -25,12 +25,7 @@ jobs:
         pushd mac
         hdiutil create ./PhoenixAnistream.dmg -srcfolder PhoenixAnistream.app -ov
         popd
-
-
-    - name: Copy Resource & UI File
-      run:  |
-        cp -R ${{ github.workspace }}/resources dist/windows/PhoenixAnistream
-        cp  ${{ github.workspace }}/AniApp.kv dist/windows/PhoenixAnistream
+        ls
 
     - uses: actions/upload-artifact@v2
       with:
