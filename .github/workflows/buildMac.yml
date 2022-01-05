@@ -13,17 +13,23 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     
-    - name: Install Python3 & Dependicies
+    - name: Install Python 3.7
       run:  |
         brew uninstall python@3.9
         brew reinstall python@3.7
         echo 'export PATH="/usr/local/opt/python@3.7/bin:$PATH"' >> /Users/runner/.bash_profile
         export LDFLAGS="-L/usr/local/opt/python@3.7/lib"
+        
         export PKG_CONFIG_PATH="/usr/local/opt/python@3.7/lib/pkgconfig"
+    - name: Install Brew Packages
+      run:  |
         brew install --build-bottle sdl2 sdl2_image sdl2_ttf sdl2_mixer
+        
+    - name: Install Pip Packages
+      run:  |
         pip3 install --upgrade pip wheel setuptools
         pip3 install Cython
-        pip3 install -r ${{ github.workspace }}/requirements.txt
+        cat  ${{ github.workspace }}/requirements.txt | cut -f1 -d"#" | sed '/^\s*$/d' | xargs -n 1 pip install
         
     - name: Package Application
       run:  |
