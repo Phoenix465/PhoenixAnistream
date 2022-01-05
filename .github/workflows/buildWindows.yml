@@ -17,11 +17,7 @@ jobs:
       uses: JackMcKew/pyinstaller-action-windows@main
       with:
         path: .
-
-    - name: Copy UI File
-      run:  |
-        cp  ${{ github.workspace }}/AniApp.kv dist/windows/PhoenixAnistream
-
+  
     - uses: actions/upload-artifact@v2
       with:
         name: PhoenixAnistreamWindowsBuild
