@@ -1,4 +1,4 @@
-name: Build App with PyInstaller
+name: Build Windows App with PyInstaller
 
 on:
   workflow_dispatch:
@@ -22,12 +22,3 @@ jobs:
       with:
         name: PhoenixAnistreamWindowsBuild
         path: dist/windows
-  
-  macbuild:
-    name: PyInstaller Build Mac
-    runs-on: macos-latest
-    
-    steps:
-    - uses: actions/download-artifact@v2
-      with:
-        name: PhoenixAnistreamWindowsBuild
