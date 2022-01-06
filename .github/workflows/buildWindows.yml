@@ -1,4 +1,4 @@
-name: Build Windows App with PyInstaller
+name: Build App with PyInstaller
 
 on:
   workflow_dispatch:
@@ -6,8 +6,8 @@ on:
       tags:
         description: 'Test Build Tags'
 jobs:
-  build:
-
+  winbuild:
+    name: PyInstaller Build Windows
     runs-on: ubuntu-latest
 
     steps:
@@ -22,3 +22,12 @@ jobs:
       with:
         name: PhoenixAnistreamWindowsBuild
         path: dist/windows
+  
+  macbuild:
+    name: PyInstaller Build Mac
+    runs-on: macos-latest
+    
+    steps:
+    - uses: actions/download-artifact@v2
+      with:
+        name: PhoenixAnistreamWindowsBuild
