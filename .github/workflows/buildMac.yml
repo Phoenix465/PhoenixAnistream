@@ -15,7 +15,7 @@ jobs:
     - name: Download the Artifact From Windows Build
       run:  |
         echo "Link ${{ github.event.inputs.actionDownloadLink }}"
-        curl ${{ github.event.inputs.actionDownloadLink }} -o "dist"
+        curl ${{ github.event.inputs.actionDownloadLink }} -o "dist/"
         ls
         cd dist
         ls
