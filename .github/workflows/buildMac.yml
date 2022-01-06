@@ -3,14 +3,14 @@ name: Build Mac App with PyInstaller using Old Windows Build
 on:
   workflow_dispatch:
     inputs:
-      tags:
-        description: 'Test Build Tags'
+      actionDownloadLink:
+        required: true
+        description: 'Windows Build Link'
 jobs:
   build:
 
     runs-on: macos-latest
 
     steps:
-    - uses: actions/download-artifact@v2
-      with:
-        name: PhoenixAnistreamWindowsBuild
+    - name: Download the Artifact From Windows Build
+      run: curl ${{INPUT_actionDownloadLink}} -o path/to/save
