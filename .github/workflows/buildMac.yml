@@ -16,7 +16,7 @@ jobs:
       run:  |
         echo "Link ${{ github.event.inputs.actionDownloadLink }}"
         mkdir dist
-        curl ${{ github.event.inputs.actionDownloadLink }} -o "dist/"
+        curl ${{ github.event.inputs.actionDownloadLink }} -o "dist/PhoenixAnistreamWindowsBuild.zip"
         ls
         cd dist
         ls
