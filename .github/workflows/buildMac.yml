@@ -13,4 +13,4 @@ jobs:
 
     steps:
     - name: Download the Artifact From Windows Build
-      run: curl ${{INPUT_actionDownloadLink}} -o path/to/save
+      run: curl ${{INPUT_ACTIONDOWNLOADLINK}} -o path/to/save
