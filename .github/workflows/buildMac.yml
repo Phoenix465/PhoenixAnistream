@@ -18,6 +18,8 @@ jobs:
         brew uninstall python@3.9
         brew uninstall --ignore-dependencies python@3.8
         brew reinstall python@3.7
+        python@3.7
+        
         echo 'export PATH="/usr/local/opt/python@3.7/bin:$PATH"' >> /Users/runner/.bash_profile
         export PATH="$PATH:/usr/local/bin"
         export LDFLAGS="-L/usr/local/opt/python@3.7/lib"
