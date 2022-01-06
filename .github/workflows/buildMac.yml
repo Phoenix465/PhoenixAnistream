@@ -13,4 +13,8 @@ jobs:
 
     steps:
     - name: Download the Artifact From Windows Build
-      run: curl ${{INPUT_ACTIONDOWNLOADLINK}} -o path/to/save
+      run:  |
+        curl ${{github.event.input.actionDownloadLink}} -o "dist"
+        ls
+        cd dist
+        ls
