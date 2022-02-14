@@ -1,4 +1,7 @@
 import os
+
+from webdriver_manager.chrome import ChromeDriverManager
+
 try:
     os.mkdir("logs")
 except:
@@ -6,7 +9,7 @@ except:
 
 from kivy.config import Config
 Config.set('kivy', 'exit_on_escape', '0')
-Config.set('kivy', 'window_icon', 'PhoenixAniStream.png')
+Config.set('kivy', 'window_icon', 'resources\PhoenixAniStream.png')
 Config.set('kivy', 'log_dir', os.path.join(os.path.split(os.path.abspath(__file__))[0], "logs"))
 Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
 Config.set('graphics', 'minimum_width', '320')
@@ -1153,12 +1156,14 @@ class VideoWindow(Widget):
     infoWindow = None
     viewLink = ""
 
+    chromePath = ""
+
     def initiate(self, episodeInstance, recentBypass=False):
         def loadVideo(mainWidget, videoWidget, episodeInstance):
             def episodeError(instance):
                 instance.mainWidget.Android_back_click(None, 27)
 
-            finalUrls = webscraper.extractVideoFiles(episodeInstance.view)
+            finalUrls = webscraper.extractVideoFiles(episodeInstance.view, mainWidget.chromePath)
             finalUrls = sorted(finalUrls, key=lambda data: int(data[1].split("x")[0]))
 
             if not len(finalUrls):
@@ -1546,8 +1551,10 @@ class AniApp(App):
     videoWindow = None
 
     def build(self):
+        chromePath = ChromeDriverManager().install()
+
         self.title = 'PhoenixAnistream'
-        self.icon = r".\PhoenixAniStream.ico"
+        self.icon = r".\resources\PhoenixAniStream.ico"
         Window.set_title(self.title)
 
         windowManager = WindowManager()
@@ -1556,6 +1563,7 @@ class AniApp(App):
         videoWindow = windowManager.ids.VideoWindow
         videoWindow.appTitle = self.title
         videoWindow.infoWindow = infoWindow
+        videoWindow.chromePath = chromePath
         self.videoWindow = videoWindow
         homeWindow.infoWindowWidget = infoWindow
         infoWindow.videoWindow = videoWindow
@@ -1608,6 +1616,7 @@ def ProgramClosed(app):
 
 
 if __name__ == '__main__':
+    print("BETTER NOT BE SHOWN")
     try:
         mkdir("cache")
     except:

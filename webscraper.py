@@ -1,6 +1,8 @@
 import logging
+import queue
 import re
 from concurrent.futures import ThreadPoolExecutor
+from multiprocessing import Pool
 from urllib.parse import quote_plus, urlparse
 
 import bs4
@@ -9,7 +11,17 @@ import cchardet
 import socket
 
 #import line_profiler_pycharm
-
+from user_agent import generate_navigator_js
+from selenium.webdriver.chrome.options import Options
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from subprocess import CREATE_NO_WINDOW
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.wait import WebDriverWait
+from selenium.common.exceptions import NoSuchElementException
+from time import sleep, time
+import threading
 
 headers = {
     "User-Agent": 'Mozilla/5.0 (Windows NT 6.3; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.115 Safari/537.36'
@@ -332,13 +344,86 @@ def GetAniData(aniUrl):
 
     return None, None, None, None, None
 
+def GetSourceSelenium(*args):
+    def driverQuit(driver):
+        driver.quit()
 
-def extractVideoFiles(aniEpUrl, repeat=5, currentRepeat=0):
+    chromePath, url, resultQueue = args[0]
+
+    mainUA = generate_navigator_js()
+    ua = mainUA["userAgent"]
+    while "Trident" in ua:
+        mainUA = generate_navigator_js()
+        ua = mainUA["userAgent"]
+
+    logging.info(f"Webscraper: SeleniumScrape - UserAgent {ua} MainUserAgent {mainUA}")
+
+    sS = time()
+    service = Service(chromePath)
+    service.creationflags = CREATE_NO_WINDOW
+
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument(f"--user-agent={ua}")
+    # chrome_options.add_argument("--disable-gpu")
+    # chrome_options.add_argument("--disable-extensions")
+    # chrome_options.add_argument("--proxy-server='direct://'")
+    # chrome_options.add_argument("--proxy-bypass-list=*")
+    prefs = {"profile.managed_default_content_settings.images": 2}
+    chrome_options.add_experimental_option("prefs", prefs)
+
+    eS = time() - sS
+
+    s1 = time()
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+    eDriver = time() - s1
+
+    s2 = time()
+
+    driver.get(url)
+    driver.switch_to.window(driver.window_handles[-1])
+
+    sSearch = time()
+    while True:
+        try:
+            element = WebDriverWait(driver, 1).until(
+                EC.visibility_of_element_located((By.CLASS_NAME, "g-recaptcha"))
+            )
+            element.click()
+        except:
+            break
+
+        sleep(0.1)
+
+        try:
+            driver.find_element(By.CLASS_NAME, "g-recaptcha")
+        except NoSuchElementException:
+            break
+    eSearch = time() - sSearch
+
+    WebDriverWait(driver, 10).until(
+        EC.visibility_of_element_located((By.CLASS_NAME, "rc"))
+    )
+    source = driver.page_source
+    if resultQueue:
+        resultQueue.put(source)
+
+    e1 = time() - s1
+    e2 = time() - s2
+    sQ = time()
+    threading.Thread(target=driverQuit, args=(driver,), daemon=True).start()
+    # driver.quit()
+    eQ = time() - sQ
+    logging.info(f"Webscraper: SeleniumScrape - Total {e1} Scrape {e2} Driver {eDriver} Settings {eS} Search {eSearch} Quit {eQ}")
+
+    return source
+
+def extractVideoFiles(aniEpUrl, chromePath, repeat=5, currentRepeat=0):
     def getUrlProtocolDomain(url):
         urlParsed = urlparse(url)
         return urlParsed.scheme, urlParsed.netloc, urlParsed.path.split("/")[1]
 
-    def recursiveGetVideoUrl(url, finished=False, finalIndexOverride=None):
+    def recursiveGetVideoUrl(url, chromePath, finished=False, finalIndexOverride=None):
         newUrl = url
         logging.info(f"Webscraper: Requesting {url}")
 
@@ -397,8 +482,40 @@ def extractVideoFiles(aniEpUrl, repeat=5, currentRepeat=0):
                         #print(functionParams)
 
                         finished = True
-                        newUrl = [recursiveGetVideoUrl(f"{urlScheme}://{urlDomain}/dl?op=download_orig&id={functionParam[0]}&mode={functionParam[1]}&hash={functionParam[2]}") for functionParam in functionParams]
-                        newUrl = list(zip(newUrl, downloadInfo))
+                        links = [f"{urlScheme}://{urlDomain}/dl?op=download_orig&id={functionParam[0]}&mode={functionParam[1]}&hash={functionParam[2]}" for functionParam in functionParams]
+
+                        s = time()
+
+                        threads = []
+
+                        results = queue.Queue()
+
+                        for link in links:
+                            thread = threading.Thread(target=GetSourceSelenium, args=((chromePath, link, results),))
+                            threads.append(thread)
+                            # GetSource(chromePath, url, results)
+
+                        for thread in threads:
+                            thread.start()
+
+                        for thread in threads:
+                            thread.join()
+
+                        #newUrl = [recursiveGetVideoUrl(]
+                        sources = list(results.queue)
+
+                        """
+                        a
+                        with Pool(len(links)) as p:
+                            sources = p.map(GetSourceSelenium, [(chromePath, link, None,) for link in links])
+                        """
+
+                        e = time() - s
+                        logging.info(f"Webscraper: SeleniumTotal {e}")
+
+                        regex = r"<a href=\"(.*?)\">Direct Download Link<\/a>"
+                        links = [re.search(regex, source).group(1) for source in sources]
+                        newUrl = list(zip(links, downloadInfo))
 
                     elif urlBasePath == "dl":
                         if not tree.find("b", {"class": "err"}):
@@ -409,6 +526,9 @@ def extractVideoFiles(aniEpUrl, repeat=5, currentRepeat=0):
                             finished = True
 
                             #print("FINISHED", newUrl)
+
+                    elif urlBasePath == "e":
+                        newUrl = url.replace("/e/", "/d/")
 
                 elif urlDomain == "playdrive.xyz" or urlDomain == "mixdrop.to":
                     if urlBasePath == "e":
@@ -442,7 +562,7 @@ def extractVideoFiles(aniEpUrl, repeat=5, currentRepeat=0):
             logging.info("Webscraper: --------------------------------------------")
             pass
 
-        return finished and newUrl or recursiveGetVideoUrl(newUrl)
+        return finished and newUrl or recursiveGetVideoUrl(newUrl, chromePath)
 
     #aniEpUrl = r"https://animedao.to/view/431131313/"
     mode = aniEpUrl.startswith("https://www1.gogoanime.cm") and "gogoanime" or "animedao"
@@ -464,7 +584,6 @@ def extractVideoFiles(aniEpUrl, repeat=5, currentRepeat=0):
             if mode == "animedao":
                 scripts = tree.find_all("script")
                 scripts = [script.text for script in scripts if "/redirect/" in script.text or "playdrive.xyz" in script.text]
-
                 iframes = [re.search("<iframe (.*?)</iframe>", script) for script in scripts]
                 iframes = [iframeRe.group() for iframeRe in iframes if iframeRe]
 
@@ -473,10 +592,11 @@ def extractVideoFiles(aniEpUrl, repeat=5, currentRepeat=0):
 
             elif mode == "gogoanime":
                 sources = [tree.find("li", {"class", "dowloads"}).find("a")["href"]]
+                sources.extend([aTag["data-video"] for aTag in tree.find_all("a") if aTag.has_attr("data-video") and "sbplay2" in aTag["data-video"]])
 
             urls = []
             for url in sources:
-                endUrl = recursiveGetVideoUrl(url)
+                endUrl = recursiveGetVideoUrl(url, chromePath)
                 urls.append(endUrl)
 
                 if endUrl != "empty":
