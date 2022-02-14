@@ -18,7 +18,7 @@ Jinja2==3.0.3
 Kivy==2.0.0
 kivy-deps.angle==0.3.0
 kivy-deps.glew==0.3.0
-kivy-deps.gstreamer==0.3.2
+# kivy-deps.gstreamer==0.3.2
 kivy-deps.sdl2==0.3.1
 Kivy-examples==2.0.0
 Kivy-Garden==0.1.4
@@ -52,4 +52,5 @@ typing-extensions==4.0.1
 urllib3==1.26.7
 user_agent==0.1.10
 wcwidth==0.2.5
+webdriver-manager==3.5.2
 zipp==3.6.0
