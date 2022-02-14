@@ -1,5 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 from kivy_deps import sdl2, glew
+import user_agent
 
 block_cipher = None
 
@@ -8,7 +9,7 @@ a = Analysis(['main.py'],
              pathex=[],
              binaries=[],
              datas=[('AniApp.kv', '.')],
-             hiddenimports=['user_agent'],
+             hiddenimports=[],
              hookspath=[],
              hooksconfig={},
              runtime_hooks=[],
@@ -40,6 +41,7 @@ coll = COLLECT(exe,
                a.zipfiles,
                a.datas, 
                Tree('resources/', prefix='resources/'),
+               Tree("\\".join(user_agent.__file__.split("\\")[:-1])),
                *[Tree(p) for p in (sdl2.dep_bins + glew.dep_bins)],
                strip=False,
                upx=True,
