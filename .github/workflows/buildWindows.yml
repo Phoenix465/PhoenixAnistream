@@ -1,0 +1,24 @@
+name: Build Windows App with PyInstaller
+
+on:
+  workflow_dispatch:
+    inputs:
+      tags:
+        description: 'Test Build Tags'
+jobs:
+  winbuild:
+    name: PyInstaller Build Windows
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Package Application
+      uses: JackMcKew/pyinstaller-action-windows@main
+      with:
+        path: .
+  
+    - uses: actions/upload-artifact@v2
+      with:
+        name: PhoenixAnistreamWindowsBuild
+        path: dist/windows
