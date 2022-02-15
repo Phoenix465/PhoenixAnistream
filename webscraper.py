@@ -348,7 +348,7 @@ def GetSourceSelenium(*args):
     def driverQuit(driver):
         driver.quit()
 
-    chromePath, url, resultQueue = args[0]
+    chromePath, url, resultQueue, threadI = args[0]
 
     mainUA = generate_navigator_js()
     ua = mainUA["userAgent"]
@@ -356,11 +356,11 @@ def GetSourceSelenium(*args):
         mainUA = generate_navigator_js()
         ua = mainUA["userAgent"]
 
-    logging.info(f"Webscraper: SeleniumScrape - UserAgent {ua} MainUserAgent {mainUA}")
+    logging.info(f"Webscraper: SeleniumScrape{threadI} - UserAgent {ua} MainUserAgent {mainUA}")
 
     sS = time()
     service = Service(chromePath)
-    service.creationflags = CREATE_NO_WINDOW
+    #service.creationflags = CREATE_NO_WINDOW
 
     chrome_options = Options()
     chrome_options.add_argument("--headless")
@@ -384,7 +384,7 @@ def GetSourceSelenium(*args):
     driver.switch_to.window(driver.window_handles[-1])
 
     sSearch = time()
-    while True:
+    for _ in range(5):
         try:
             element = WebDriverWait(driver, 1).until(
                 EC.visibility_of_element_located((By.CLASS_NAME, "g-recaptcha"))
@@ -399,14 +399,24 @@ def GetSourceSelenium(*args):
             driver.find_element(By.CLASS_NAME, "g-recaptcha")
         except NoSuchElementException:
             break
+    else:
+        logging.info(f"Webscraper: SeleniumScrape{threadI} - Exited Button Location Maturely")
+
     eSearch = time() - sSearch
 
-    WebDriverWait(driver, 10).until(
-        EC.visibility_of_element_located((By.CLASS_NAME, "rc"))
-    )
-    source = driver.page_source
-    if resultQueue:
-        resultQueue.put(source)
+    passed = True
+    try:
+        WebDriverWait(driver, 5).until(
+            EC.visibility_of_element_located((By.CLASS_NAME, "rc"))
+        )
+    except:
+        logging.info(f"Webscraper: SeleniumScrape{threadI} - Failed to Locate Video Data within TimeOut")
+        passed = False
+
+    if passed:
+        source = driver.page_source
+        if resultQueue:
+            resultQueue.put(source)
 
     e1 = time() - s1
     e2 = time() - s2
@@ -414,9 +424,9 @@ def GetSourceSelenium(*args):
     threading.Thread(target=driverQuit, args=(driver,), daemon=True).start()
     # driver.quit()
     eQ = time() - sQ
-    logging.info(f"Webscraper: SeleniumScrape - Total {e1} Scrape {e2} Driver {eDriver} Settings {eS} Search {eSearch} Quit {eQ}")
+    logging.info(f"Webscraper: SeleniumScrape{threadI} - Total {e1} Scrape {e2} Driver {eDriver} Settings {eS} Search {eSearch} Quit {eQ}")
 
-    return source
+    return source if passed else None
 
 def extractVideoFiles(aniEpUrl, chromePath, repeat=5, currentRepeat=0):
     def getUrlProtocolDomain(url):
@@ -490,8 +500,8 @@ def extractVideoFiles(aniEpUrl, chromePath, repeat=5, currentRepeat=0):
 
                         results = queue.Queue()
 
-                        for link in links:
-                            thread = threading.Thread(target=GetSourceSelenium, args=((chromePath, link, results),))
+                        for i, link in enumerate(links):
+                            thread = threading.Thread(target=GetSourceSelenium, args=((chromePath, link, results, i),))
                             threads.append(thread)
                             # GetSource(chromePath, url, results)
 

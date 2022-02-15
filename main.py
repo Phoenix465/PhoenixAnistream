@@ -1616,7 +1616,6 @@ def ProgramClosed(app):
 
 
 if __name__ == '__main__':
-    print("BETTER NOT BE SHOWN")
     try:
         mkdir("cache")
     except:
