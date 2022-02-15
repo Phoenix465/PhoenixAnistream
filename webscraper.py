@@ -360,13 +360,13 @@ def GetSourceSelenium(*args):
 
     sS = time()
     service = Service(chromePath)
-    #service.creationflags = CREATE_NO_WINDOW
+    service.creationflags = CREATE_NO_WINDOW
 
     chrome_options = Options()
     chrome_options.add_argument("--headless")
     chrome_options.add_argument(f"--user-agent={ua}")
     # chrome_options.add_argument("--disable-gpu")
-    # chrome_options.add_argument("--disable-extensions")
+    chrome_options.add_argument("--disable-extensions")
     # chrome_options.add_argument("--proxy-server='direct://'")
     # chrome_options.add_argument("--proxy-bypass-list=*")
     prefs = {"profile.managed_default_content_settings.images": 2}
