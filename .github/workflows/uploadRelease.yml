@@ -19,7 +19,7 @@ jobs:
       - name: Download project # This would actually build your project, using zip for an example artifact
         run: |
           echo "Link ${{ github.event.inputs.actionDownloadLink }}"
-          curl ${{ github.event.inputs.actionDownloadLink }} -o "PhoenixAnistreamWindowsBuild.zip"
+          wget ${{ github.event.inputs.actionDownloadLink }} -o "PhoenixAnistreamWindowsBuild.zip"
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
