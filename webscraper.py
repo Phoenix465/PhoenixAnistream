@@ -428,6 +428,7 @@ def GetSourceSelenium(*args):
 
     return source if passed else None
 
+
 def extractVideoFiles(aniEpUrl, chromePath, repeat=5, currentRepeat=0):
     def getUrlProtocolDomain(url):
         urlParsed = urlparse(url)
@@ -478,7 +479,7 @@ def extractVideoFiles(aniEpUrl, chromePath, repeat=5, currentRepeat=0):
 
                         newUrl = links[0]
 
-                elif urlDomain == "sbplay2.com":
+                elif urlDomain == "sbplay2.com" or urlDomain == "sbplay2.xyz":
                     if urlBasePath == "d":
                         aTags = tree.find_all("a", {"href": "#"})
                         functionCalls = [aTag.get("onclick") for aTag in aTags if aTag.get("onclick")]
