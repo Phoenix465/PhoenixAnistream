@@ -363,7 +363,7 @@
         pos: 0, 0
         size: self.parent.size
         size_hint: None, None
-        allow_stretch: True
+        allow_stretch: False
         state: "play"
         options: {"eos": "loop"}
 
@@ -902,6 +902,45 @@
             source: "resources/pin.png"
             mipmap: True
 
+    Button:
+        id: FullScreenButton
+        opacity: 0
+        background_normal: ""
+        background_color: (0, 0, 0, 0)
+        pos: root.width-self.size[0], 0 #self.size[1]
+        size: root.height*0.08, root.height*0.08
+
+        on_press: root.FullScreenToggle()
+
+        Image:
+            id: FullScreenImage
+
+            pos: self.parent.pos
+            size: self.parent.size
+            size_hint: None, None
+            source: "resources/FullScreenOn.png"
+            mipmap: True
+
+    Button:
+        id: DownloadButton
+        opacity: 0
+        background_normal: ""
+        background_color: (0, 0, 0, 0)
+        pos: root.width-self.size[0]*2 - root.height*0.02, 0 #self.size[1]
+        size: root.height*0.08, root.height*0.08
+
+        on_press: root.DownloadToggle()
+
+        Image:
+            id: DownloadImage
+
+            pos: self.parent.pos
+            size: self.parent.size
+            size_hint: None, None
+            source: "resources/DownloadButton.png"
+            mipmap: True
+
+
     FloatLayout:
         pos: 0, 0
         size: root.size
@@ -939,7 +978,7 @@
             font_size: root.height*0.05
 
             text_size: self.size
-            pos: root.width*0.5 - (4*root.height*0.05*0.55), root.height*0.01
+            pos: root.width*0.5 - (4*root.height*0.05*0.55) - 2*(root.height*(0.08+0.02)), root.height*0.01
 
     Slider:
         id: DurationSlider
@@ -955,7 +994,8 @@
         value_track_width: root.height/(36*1.5)
         value_track_color: 0.1, 0.1, 0.1, 0.8
         padding: root.height/36
-        #cursor_image: "circle.png"
+        cursor_image: "resources/circle.png"
+        cursor_disabled_image: "resources/circle.png"
         #cursor_size: root.height/10, root.height/10
 
         on_touch_down: if self.collide_point(*args[1].pos): root.Slider_TouchUpDown(True)
@@ -979,8 +1019,11 @@
 
         orientation: 'horizontal'
         padding: root.height/36
+        cursor_image: "resources/circle.png"
+        cursor_disabled_image: "resources/circle.png"
 
-        pos: root.width*0.5, root.height/36
+        # Halfway - Full ScreenX
+        pos: root.width*0.5 - (root.height*(0.08 + 0.02))*2, root.height/36
         size: root.width*0.5, root.height/36
 
     Button:

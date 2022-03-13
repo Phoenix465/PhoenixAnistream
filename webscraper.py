@@ -380,8 +380,10 @@ def GetSourceSelenium(*args):
 
     s2 = time()
 
+    sGet = time()
     driver.get(url)
     driver.switch_to.window(driver.window_handles[-1])
+    eGet = time() - sGet
 
     sSearch = time()
     for _ in range(5):
@@ -416,7 +418,7 @@ def GetSourceSelenium(*args):
     if passed:
         source = driver.page_source
         if resultQueue:
-            resultQueue.put(source)
+            resultQueue.put([threadI, source])
 
     e1 = time() - s1
     e2 = time() - s2
@@ -424,7 +426,7 @@ def GetSourceSelenium(*args):
     threading.Thread(target=driverQuit, args=(driver,), daemon=True).start()
     # driver.quit()
     eQ = time() - sQ
-    logging.info(f"Webscraper: SeleniumScrape{threadI} - Total {e1} Scrape {e2} Driver {eDriver} Settings {eS} Search {eSearch} Quit {eQ}")
+    logging.info(f"Webscraper: SeleniumScrape{threadI} - Total {e1} Get {eGet} Scrape {e2} Driver {eDriver} Settings {eS} Search {eSearch} Quit {eQ}")
 
     return source if passed else None
 
@@ -439,135 +441,145 @@ def extractVideoFiles(aniEpUrl, chromePath, repeat=5, currentRepeat=0):
         logging.info(f"Webscraper: Requesting {url}")
 
         if not finished:
-            urlRequest = requests.get(url, headers=headers)
-
-            endUrl = urlRequest.url
-            urlContent = urlRequest.content
-
-            if urlRequest.status_code == 200:
-                tree = bs4.BeautifulSoup(urlContent, 'lxml')
-
-                urlScheme, urlDomain, urlBasePath = getUrlProtocolDomain(endUrl)
-                logging.info(f"Webscraper: Received {endUrl} : {urlScheme} {urlDomain} {urlBasePath}")
-
-                if urlDomain == "vstream1.xyz":
-                    newUrl = urlScheme + ":" + tree.iframe["src"]
-
-                elif urlDomain == "gogoplay1.com":
-                    if urlBasePath == "streaming.php":
-                        #links = tree.find_all("li", {"class": "linkserver"})
-                        #links = [link["data-video"] for link in links if link["data-video"]]
-                        #newUrl = links[0]
-
-                        pageId = endUrl.replace(r"https://gogoplay1.com/streaming.php?id=", "")
-                        newUrl = f"https://gogoplay1.com/download?id={pageId}&title=&typesub="
-
-                    elif urlBasePath == "embedplus":
-                        link = re.search("https://gogoplay(.*?)typesub=", urlContent.decode("utf-8"))
-
-                        if not link:
-                            iframes = tree.find_all("iframe", {"id": "embedvideo"})
-
-                            if len(iframes) > 0:
-                                newUrl = iframes[0]["src"]
-                        else:
-                            newUrl = link.group()
-
-                    elif urlBasePath == "download":
-                        aLinks = tree.find_all("a", {"target": "_blank"})
-                        links = [aLink["href"] for aLink in aLinks]
-
-                        newUrl = links[0]
-
-                elif urlDomain == "sbplay2.com" or urlDomain == "sbplay2.xyz":
-                    if urlBasePath == "d":
-                        aTags = tree.find_all("a", {"href": "#"})
-                        functionCalls = [aTag.get("onclick") for aTag in aTags if aTag.get("onclick")]
-                        functionMatches = [re.search("download_video\('(.*?)','(.*?)','(.*?)'\)", call) for call in functionCalls]
-                        functionParams = [(match.group(1), match.group(2), match.group(3)) for match in functionMatches]
-
-                        downloadInfo = [aTag.parent.parent.find_all("td")[1].text for aTag in aTags if aTag.get("onclick")]
-
-                        #functionParam = functionParams[finalIndexOverride or -1]
-
-                        #print(functionParams)
-
-                        finished = True
-                        links = [f"{urlScheme}://{urlDomain}/dl?op=download_orig&id={functionParam[0]}&mode={functionParam[1]}&hash={functionParam[2]}" for functionParam in functionParams]
-
-                        s = time()
-
-                        threads = []
-
-                        results = queue.Queue()
-
-                        for i, link in enumerate(links):
-                            thread = threading.Thread(target=GetSourceSelenium, args=((chromePath, link, results, i),))
-                            threads.append(thread)
-                            # GetSource(chromePath, url, results)
-
-                        for thread in threads:
-                            thread.start()
-
-                        for thread in threads:
-                            thread.join()
-
-                        #newUrl = [recursiveGetVideoUrl(]
-                        sources = list(results.queue)
-
-                        """
-                        a
-                        with Pool(len(links)) as p:
-                            sources = p.map(GetSourceSelenium, [(chromePath, link, None,) for link in links])
-                        """
-
-                        e = time() - s
-                        logging.info(f"Webscraper: SeleniumTotal {e}")
-
-                        regex = r"<a href=\"(.*?)\">Direct Download Link<\/a>"
-                        links = [re.search(regex, source).group(1) for source in sources]
-                        newUrl = list(zip(links, downloadInfo))
-
-                    elif urlBasePath == "dl":
-                        if not tree.find("b", {"class": "err"}):
-                            aTags = tree.find_all("a")
-                            downloadA = [aTag["href"] for aTag in aTags if aTag.text == "Direct Download Link"][0]
-
-                            newUrl = downloadA
-                            finished = True
-
-                            #print("FINISHED", newUrl)
-
-                    elif urlBasePath == "e":
-                        newUrl = url.replace("/e/", "/d/")
-
-                elif urlDomain == "playdrive.xyz" or urlDomain == "mixdrop.to":
-                    if urlBasePath == "e":
-                        newUrl = "empty"
-                        finished = True
-
-                elif urlDomain == "streamsb.net":
-                    newUrl = "empty"
-                    finished = True
-
-                elif urlDomain == "vcdn2.space":
-                    if urlBasePath == "v":
-                        newUrl = "empty"
-                        finished = True
-
-                elif urlDomain == "www.mp4upload.com":
-                    newUrl = "empty"
-                    finished = True
-
-                else:
-                    newUrl = "empty"
-                    finished = True
-
-                logging.info(f"Webscraper: New {newUrl}")
+            if "sbplay2" in url and "/e/" in url:
+                newUrl = url.replace("/e/", "/d/") + ".html"
 
             else:
-                newUrl = "empty"
-                finished = True
+                urlRequest = requests.get(url, headers=headers)
+
+                endUrl = urlRequest.url
+                urlContent = urlRequest.content
+
+                if urlRequest.status_code == 200:
+                    tree = bs4.BeautifulSoup(urlContent, 'lxml')
+
+                    urlScheme, urlDomain, urlBasePath = getUrlProtocolDomain(endUrl)
+                    logging.info(f"Webscraper: Received {endUrl} : {urlScheme} {urlDomain} {urlBasePath}")
+
+                    if urlDomain == "vstream1.xyz":
+                        newUrl = urlScheme + ":" + tree.iframe["src"]
+
+                    elif urlDomain == "gogoplay1.com":
+                        if urlBasePath == "streaming.php":
+                            #links = tree.find_all("li", {"class": "linkserver"})
+                            #links = [link["data-video"] for link in links if link["data-video"]]
+                            #newUrl = links[0]
+
+                            pageId = endUrl.replace(r"https://gogoplay1.com/streaming.php?id=", "")
+                            newUrl = f"https://gogoplay1.com/download?id={pageId}&title=&typesub="
+
+                        elif urlBasePath == "embedplus":
+                            link = re.search("https://gogoplay(.*?)typesub=", urlContent.decode("utf-8"))
+
+                            if not link:
+                                iframes = tree.find_all("iframe", {"id": "embedvideo"})
+
+                                if len(iframes) > 0:
+                                    newUrl = iframes[0]["src"]
+                            else:
+                                newUrl = link.group()
+
+                        elif urlBasePath == "download":
+                            aLinks = tree.find_all("a", {"target": "_blank"})
+                            links = [aLink["href"] for aLink in aLinks]
+
+                            newUrl = links[0]
+
+                    elif urlDomain == "sbplay2.com" or urlDomain == "sbplay2.xyz":
+                        if urlBasePath == "d":
+                            aTags = tree.find_all("a", {"href": "#"})
+                            functionCalls = [aTag.get("onclick") for aTag in aTags if aTag.get("onclick")]
+                            functionMatches = [re.search("download_video\('(.*?)','(.*?)','(.*?)'\)", call) for call in functionCalls]
+                            functionParams = [(match.group(1), match.group(2), match.group(3)) for match in functionMatches]
+
+                            downloadInfo = [aTag.parent.parent.find_all("td")[1].text for aTag in aTags if aTag.get("onclick")]
+
+                            #functionParam = functionParams[finalIndexOverride or -1]
+
+                            #print(functionParams)
+
+                            finished = True
+                            links = [f"{urlScheme}://{urlDomain}/dl?op=download_orig&id={functionParam[0]}&mode={functionParam[1]}&hash={functionParam[2]}" for functionParam in functionParams]
+
+                            s = time()
+
+                            threads = []
+
+                            results = queue.Queue()
+
+                            for i, link in enumerate(links):
+                                thread = threading.Thread(target=GetSourceSelenium, args=((chromePath, link, results, i),))
+                                threads.append(thread)
+                                # GetSource(chromePath, url, results)
+
+                            for thread in threads:
+                                thread.start()
+
+                            for thread in threads:
+                                thread.join()
+
+                            #newUrl = [recursiveGetVideoUrl(]
+
+                            unsyncSourcesData = list(results.queue)
+                            sources = [""] * len(unsyncSourcesData)
+                            for sourceData in unsyncSourcesData:
+                                sources[sourceData[0]] = sourceData[1]
+
+                            """
+                            a
+                            with Pool(len(links)) as p:
+                                sources = p.map(GetSourceSelenium, [(chromePath, link, None,) for link in links])
+                            """
+
+                            e = time() - s
+                            logging.info(f"Webscraper: SeleniumTotal {e}")
+
+                            regex = r"<a href=\"(.*?)\">Direct Download Link<\/a>"
+                            links = [re.search(regex, source).group(1) for source in sources]
+                            newUrl = list(zip(links, downloadInfo))
+                            newUrl = [data for data in newUrl if data[0]]
+
+                        elif urlBasePath == "dl":
+                            if not tree.find("b", {"class": "err"}):
+                                aTags = tree.find_all("a")
+                                downloadA = [aTag["href"] for aTag in aTags if aTag.text == "Direct Download Link"][0]
+
+                                newUrl = downloadA
+                                finished = True
+
+                                #print("FINISHED", newUrl)
+
+                        elif urlBasePath == "e":
+                            newUrl = url.replace("/e/", "/d/")
+
+                    elif urlDomain == "playdrive.xyz" or urlDomain == "mixdrop.to":
+                        if urlBasePath == "e":
+                            newUrl = "empty"
+                            finished = True
+
+                    elif urlDomain == "streamsb.net":
+                        newUrl = "empty"
+                        finished = True
+
+                    elif urlDomain == "vcdn2.space":
+                        if urlBasePath == "v":
+                            newUrl = "empty"
+                            finished = True
+
+                    elif urlDomain == "www.mp4upload.com":
+                        newUrl = "empty"
+                        finished = True
+
+                    else:
+                        newUrl = "empty"
+                        finished = True
+
+                    logging.info(f"Webscraper: New {newUrl}")
+
+                else:
+                    logging.info(f"Webscraper: Failed to Request {urlRequest.status_code}")
+                    newUrl = "empty"
+                    finished = True
 
         if finished:
             logging.info("Webscraper: --------------------------------------------")

@@ -1284,6 +1284,7 @@ class VideoWindow(Widget):
     def Android_back_click(self, window, key, *largs):
         if self.parent.manager.current == "VideoPlayer":
             if key == 27:
+                Window.fullscreen = False
                 self.BackButtonClicked(bypass=True)
 
                 video = self.ids.VideoWidget
@@ -1377,6 +1378,26 @@ class VideoWindow(Widget):
         if reloadImage:
             self.ids.PinImage.source = self.pinned and "resources/pinC.png" or "resources/pin.png"
 
+    def FullScreenToggle(self, *args):
+        fullScreenImage = self.ids.FullScreenImage
+        imagePath = fullScreenImage.source
+
+        if self.ids.FullScreenButton.opacity:
+            if "On" in imagePath:
+                Window.fullscreen = "auto"
+                fullScreenImage.source = "resources/FullScreenOff.png"
+            elif "Off" in imagePath:
+                Window.fullscreen = False
+                fullScreenImage.source = "resources/FullScreenOn.png"
+        else:
+            self.touchButtonTouched()
+
+    def DownloadToggle(self, *args):
+        if self.ids.DownloadButton.opacity:
+            webbrowser.open(self.ids.VideoWidget.source)
+        else:
+            self.touchButtonTouched()
+
     def refreshPositionSlider(self, *args):
         def convertTimeToDuration(time):
             return f"{time // 3600:0>2}:{time // 60 - (time // 3600) * 60:0>2}:{time % 60:0>2}" if time >= 3600 else f"{time // 60:0>2}:{time % 60:0>2}"
@@ -1434,7 +1455,7 @@ class VideoWindow(Widget):
         self.volumeString = f"{int(volumeSlider.value)}%"
         volumeText = self.ids.VolumeText
         volumeText.text_size = volumeText.size
-        volumeText.pos = width * 0.5 - (4 * height * 0.05 * 0.55), height * 0.01
+        volumeText.pos = width * 0.5 - (4 * height * 0.05 * 0.55) - 2*(height*(0.08+0.02)), height * 0.01
 
         durationSlider = self.ids.DurationSlider
         durationSlider.max = ceil(video.duration)
@@ -1452,7 +1473,7 @@ class VideoWindow(Widget):
         self.RowClicked(bypass=True)
         self.TogglePlayPause(bypass=True)
 
-        guis = [title, self.ids.PlayPauseButton, self.ids.BackButton, self.ids.BackgroundButton, positionDurationText, volumeText, durationSlider, volumeSlider]
+        guis = [title, self.ids.PlayPauseButton, self.ids.BackButton, self.ids.BackgroundButton, positionDurationText, volumeText, durationSlider, volumeSlider, self.ids.FullScreenButton, self.ids.DownloadButton]
         if platform == "win":
             guis.append(self.ids.PinButton)
 
