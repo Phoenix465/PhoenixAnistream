@@ -907,7 +907,7 @@
         opacity: 0
         background_normal: ""
         background_color: (0, 0, 0, 0)
-        pos: root.width-self.size[0], 0 #self.size[1]
+        pos: root.width-self.size[0] - root.height*0.01, root.height*0.01 #self.size[1]
         size: root.height*0.08, root.height*0.08
 
         on_press: root.FullScreenToggle()
@@ -926,7 +926,7 @@
         opacity: 0
         background_normal: ""
         background_color: (0, 0, 0, 0)
-        pos: root.width-self.size[0]*2 - root.height*0.02, 0 #self.size[1]
+        pos: root.width-self.size[0]*2 - root.height*0.02 - root.height*0.01, root.height*0.01 #self.size[1]
         size: root.height*0.08, root.height*0.08
 
         on_press: root.DownloadToggle()
@@ -966,7 +966,7 @@
             font_size: root.height*0.05
 
             text_size: self.size
-            pos: root.height*0.01, root.height*0.01
+            pos: root.height*0.02, root.height*0.02
 
         Label:
             id: VolumeText
@@ -978,7 +978,7 @@
             font_size: root.height*0.05
 
             text_size: self.size
-            pos: root.width*0.5 - (4*root.height*0.05*0.55) - 2*(root.height*(0.08+0.02)), root.height*0.01
+            pos: root.width*0.5 - (4*root.height*0.05*0.55) - 2*(root.height*(0.08+0.02)) - root.height*0.02, root.height*0.015
 
     Slider:
         id: DurationSlider
@@ -989,8 +989,8 @@
 
         orientation: 'horizontal'
 
-        pos: 0, root.height*0.05
-        size: root.width, root.height/36
+        pos: root.width*0.03/2, root.height*0.05 + root.height*0.03
+        size: root.width*0.97, root.height/36
         value_track_width: root.height/(36*1.5)
         value_track_color: 0.1, 0.1, 0.1, 0.8
         padding: root.height/36
@@ -1023,7 +1023,7 @@
         cursor_disabled_image: "resources/circle.png"
 
         # Halfway - Full ScreenX
-        pos: root.width*0.5 - (root.height*(0.08 + 0.02))*2, root.height/36
+        pos: root.width*0.5 - (root.height*(0.08 + 0.02))*2 - root.height*0.02, root.height/36 + root.height*0.01
         size: root.width*0.5, root.height/36
 
     Button:

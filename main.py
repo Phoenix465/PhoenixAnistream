@@ -1192,13 +1192,16 @@ class VideoWindow(Widget):
                 mainWidget.finalUrls = finalUrls
 
                 if len(mainWidget.finalUrls) > 0:
-                    videoWidget.source = mainWidget.finalUrls[-1][0]
+                    videoWidget.source = [data for data in mainWidget.finalUrls if data[0] != "NA"][-1][0]
 
                     if not self.isLacking:
                         videoWidget.state = "play"
 
                     for data in finalUrls:
-                        newWidget = VideoInfo(text=data[1], size=(self.videoInfoWidth, self.videoInfoHeight), sourceLink=data[0])
+                        if data[0] == "NA":
+                            newWidget = VideoInfo(text=f"{data[1]} - NA", size=(self.videoInfoWidth, self.videoInfoHeight), sourceLink=data[0])
+                        else:
+                            newWidget = VideoInfo(text=data[1], size=(self.videoInfoWidth, self.videoInfoHeight), sourceLink=data[0])
                         newWidget.bind(on_press=self.VideoInfoButtonClicked)
                         self.ids.RowsGridLayout.add_widget(newWidget)
 
@@ -1447,19 +1450,19 @@ class VideoWindow(Widget):
         self.positionDurationString = convertTimeToDuration(video.position >= 0 and ceil(video.position) or 0) + " / " + convertTimeToDuration(video.duration >= 0 and ceil(video.duration) or 0)
         positionDurationText = self.ids.PositionDurationText
         positionDurationText.text_size = positionDurationText.size
-        positionDurationText.pos = 0, 0
+        positionDurationText.pos = height*0.02, height*0.02
 
         volumeSlider = self.ids.VolumeSlider
-        volumeSlider.y = height/36 if volumeSlider.opacity else -50 - height/36
+        volumeSlider.y = height/36 + height*0.01 if volumeSlider.opacity else -50 - height/36 - height*0.01
 
         self.volumeString = f"{int(volumeSlider.value)}%"
         volumeText = self.ids.VolumeText
         volumeText.text_size = volumeText.size
-        volumeText.pos = width * 0.5 - (4 * height * 0.05 * 0.55) - 2*(height*(0.08+0.02)), height * 0.01
+        volumeText.pos = width * 0.5 - (4 * height * 0.05 * 0.55) - 2*(height*(0.08+0.02)) - height*0.02, height * 0.015
 
         durationSlider = self.ids.DurationSlider
         durationSlider.max = ceil(video.duration)
-        durationSlider.y = height*0.1 if durationSlider.opacity else -50 - height/36
+        durationSlider.y = height*0.1 + height*0.03 if durationSlider.opacity else -50 - height/36 - (height*0.1 + height*0.03)
         #durationSlider.cursor_image = "circle.png" if self.sliderTouched else "blank.png"
         self.normalisedDuration = video.position / video.duration
 
@@ -1485,6 +1488,9 @@ class VideoWindow(Widget):
             gui.opacity = state
 
     def VideoInfoButtonClicked(self, instance, value=None):
+        if instance.sourceLink == "NA" or self.ids.VideoWidget.source == instance.sourceLink:
+            return
+
         self.TogglePlayPause(bypass=True, forceRefresh=True, overrideSource=instance.sourceLink)
 
     def touchButtonTouched(self):

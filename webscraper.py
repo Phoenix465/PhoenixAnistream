@@ -521,7 +521,7 @@ def extractVideoFiles(aniEpUrl, chromePath, repeat=5, currentRepeat=0):
                             #newUrl = [recursiveGetVideoUrl(]
 
                             unsyncSourcesData = list(results.queue)
-                            sources = [""] * len(unsyncSourcesData)
+                            sources = [""] * len(downloadInfo)
                             for sourceData in unsyncSourcesData:
                                 sources[sourceData[0]] = sourceData[1]
 
@@ -535,9 +535,14 @@ def extractVideoFiles(aniEpUrl, chromePath, repeat=5, currentRepeat=0):
                             logging.info(f"Webscraper: SeleniumTotal {e}")
 
                             regex = r"<a href=\"(.*?)\">Direct Download Link<\/a>"
-                            links = [re.search(regex, source).group(1) for source in sources]
+                            searches = [re.search(regex, source) for source in sources]
+                            links = [search.group(1) if search else "NA" for search in searches]
                             newUrl = list(zip(links, downloadInfo))
-                            newUrl = [data for data in newUrl if data[0]]
+
+                            if all([link == "NA" for link in links]):
+                                newUrl = "empty"
+
+                            finished = True
 
                         elif urlBasePath == "dl":
                             if not tree.find("b", {"class": "err"}):
