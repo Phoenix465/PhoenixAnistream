@@ -940,6 +940,44 @@
             source: "resources/DownloadButton.png"
             mipmap: True
 
+    Button:
+        id: FastForwardButton
+        opacity: 0
+        background_normal: ""
+        background_color: (0, 0, 0, 0)
+        size: root.height*0.08, root.height*0.08
+        pos: root.width*0.5 - (4*root.height*0.05*0.55) - 2*(root.height*(0.08+0.02)) - root.height*0.02 - root.height*0.05*4*0.5, root.height*0.01
+
+        on_press: root.FastForward()
+
+        Image:
+            id: FastForwardImage
+
+            pos: self.parent.pos
+            size: self.parent.size
+            size_hint: None, None
+            source: "resources/fastforward.png"
+            mipmap: True
+
+    Button:
+        id: FastBackwardButton
+        opacity: 0
+        background_normal: ""
+        background_color: (0, 0, 0, 0)
+        #    root.width*0.5 - (4*root.height*0.05*0.55) - 2*(root.height*(0.08+0.02)) - root.height*0.02
+        pos: root.width*0.5 - (4*root.height*0.05*0.55) - 2*(root.height*(0.08+0.02)) - root.height*0.02 - root.height*0.05*4*0.5 - root.height*0.08 - root.height*0.02, root.height*0.01
+        size: root.height*0.08, root.height*0.08
+
+        on_press: root.FastBackward()
+
+        Image:
+            id: FastBackwardImage
+
+            pos: self.parent.pos
+            size: self.parent.size
+            size_hint: None, None
+            source: "resources/backforward.png"
+            mipmap: True
 
     FloatLayout:
         pos: 0, 0

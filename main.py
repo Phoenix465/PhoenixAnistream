@@ -875,8 +875,6 @@ class InfoWindow(Widget):
     def refreshDescription(self, *args):
         width, height = Window.size
 
-        self.updateVars()
-
         descriptionId = self.ids.description
 
         text = descriptionId.textDescription
@@ -918,6 +916,8 @@ class InfoWindow(Widget):
                                     self.ids.Thumbnail.height + (
                     0.05 * 4 * height)
         episodeGridLayout.y = 0
+
+        self.updateVars()
 
     def searchClicked(self):
         episodeGridLayout = self.ids.EpisodeGridLayout
@@ -1158,6 +1158,9 @@ class VideoWindow(Widget):
 
     chromePath = ""
 
+    seekTime = 0
+    seekingPause = False
+
     def initiate(self, episodeInstance, recentBypass=False):
         def loadVideo(mainWidget, videoWidget, episodeInstance):
             def episodeError(instance):
@@ -1286,6 +1289,7 @@ class VideoWindow(Widget):
 
     def Android_back_click(self, window, key, *largs):
         if self.parent.manager.current == "VideoPlayer":
+            # Escape
             if key == 27:
                 Window.fullscreen = False
                 self.BackButtonClicked(bypass=True)
@@ -1330,6 +1334,7 @@ class VideoWindow(Widget):
 
                 return True
 
+            # N
             elif key == 110:
                 if self.lackingEnabled:
                     self.isLacking = not self.isLacking
@@ -1337,6 +1342,28 @@ class VideoWindow(Widget):
                     if self.isLacking:
                         self.play = False
                         self.TogglePlayPause(bypass=True, noReload=True)
+
+            # Space
+            elif key == 32 and not self.isLacking:
+                self.TogglePlayPause(toggleBypass=True)
+
+            # Up
+            elif key == 273:
+                origValue = self.ids.VolumeSlider.value
+                self.ids.VolumeSlider.value = max(0, min(100, origValue + 5))
+
+            # Down
+            elif key == 274:
+                origValue = self.ids.VolumeSlider.value
+                self.ids.VolumeSlider.value = max(0, min(100, origValue - 5))
+
+            # Left
+            elif key == 276:
+                self.FastBackward(bypass=True)
+
+            # Right
+            elif key == 275:
+                self.FastForward(bypass=True)
 
     def BackButtonClicked(self, *args, bypass=False):
         if self.ids.BackButton.opacity or bypass:
@@ -1375,6 +1402,8 @@ class VideoWindow(Widget):
                     register_topmost(Window, self.appTitle)
                 else:
                     unregister_topmost(Window, self.appTitle)
+
+                self.touchTime = time() + 5
             else:
                 self.touchButtonTouched()
 
@@ -1392,14 +1421,76 @@ class VideoWindow(Widget):
             elif "Off" in imagePath:
                 Window.fullscreen = False
                 fullScreenImage.source = "resources/FullScreenOn.png"
+
+            self.touchTime = time() + 5
         else:
             self.touchButtonTouched()
 
     def DownloadToggle(self, *args):
         if self.ids.DownloadButton.opacity:
             webbrowser.open(self.ids.VideoWidget.source)
+            self.touchTime = time() + 5
         else:
             self.touchButtonTouched()
+
+    def FastForward(self, bypass=False, *args):
+        if self.ids.FastForwardButton.opacity or bypass:
+            #video = self.ids.VideoWidget
+
+            #position = min(max(video.position + 5, 0), video.duration)
+            #video.seek(position/video.duration, precise=True)
+            self.seekTime += 5
+            self.touchTime = time() + 5
+
+        else:
+            self.touchButtonTouched()
+
+    def FastBackward(self, bypass=False, *args):
+        if self.ids.FastBackwardButton.opacity or bypass:
+            #video = self.ids.VideoWidget
+
+            #position = min(max(video.position - 5, 0), video.duration)
+            #video.seek(position/video.duration, precise=True)
+            self.seekTime -= 5
+            self.touchTime = time() + 5
+
+        else:
+            self.touchButtonTouched()
+
+    def VideoSeekTimeUpdater(self, *args):
+        def ResetTime(VideoClass, videoPlayer, oldPosition, threshold, initialSeekTime):
+            print("Data", oldPosition, threshold)
+            s = time()
+            for _ in range(50):
+                sleep(0.1)
+                e = time() - s
+
+                if abs(videoPlayer.position - oldPosition) > abs(threshold):
+                    print("Broke On", _, videoPlayer.position, abs(videoPlayer.position-oldPosition))
+                    VideoClass.seekTime -= initialSeekTime
+                    break
+
+            else:
+                print("Failed", videoPlayer.position, e, abs(videoPlayer.position-oldPosition))
+
+            VideoClass.seekingPause = False
+            print("New", videoPlayer.position)
+        if self.parent.manager.current == "VideoPlayer" and self.seekTime and not self.seekingPause:
+            video = self.ids.VideoWidget
+
+            if video.duration == -1:
+                return
+
+            origSeekTime = self.seekTime
+            self.seekingPause = True
+            oldPos = video.position
+            position = min(max(video.position + self.seekTime, 0), video.duration)
+            changeThreshold = self.seekTime / 2
+
+            video.seek(position/video.duration, precise=True)
+
+            resetThread = threading.Thread(target=ResetTime, args=(self, video, oldPos, changeThreshold, origSeekTime,))
+            resetThread.start()
 
     def refreshPositionSlider(self, *args):
         def convertTimeToDuration(time):
@@ -1476,7 +1567,23 @@ class VideoWindow(Widget):
         self.RowClicked(bypass=True)
         self.TogglePlayPause(bypass=True)
 
-        guis = [title, self.ids.PlayPauseButton, self.ids.BackButton, self.ids.BackgroundButton, positionDurationText, volumeText, durationSlider, volumeSlider, self.ids.FullScreenButton, self.ids.DownloadButton]
+        guis = [
+            title,
+            self.ids.PlayPauseButton,
+            self.ids.BackButton,
+            self.ids.BackgroundButton,
+            positionDurationText,
+            volumeText,
+            durationSlider,
+            volumeSlider,
+            self.ids.FullScreenButton,
+            self.ids.DownloadButton,
+            self.ids.RowsButton,
+            self.ids.RowsGridLayout,
+            self.ids.FastForwardButton,
+            self.ids.FastBackwardButton
+        ]
+
         if platform == "win":
             guis.append(self.ids.PinButton)
 
@@ -1522,6 +1629,10 @@ class VideoWindow(Widget):
         self.touchTime = time() + 5
 
     def RowClicked(self, bypass=False):
+        if not bypass and not self.ids.RowsButton.opacity:
+            self.touchButtonTouched()
+            return
+
         if not bypass:
             self.rowClicked = not self.rowClicked
 
@@ -1529,16 +1640,17 @@ class VideoWindow(Widget):
 
         grid = self.ids.RowsGridLayout
         grid.x = self.rowClicked and width*0.8 or width
+        grid.opacity = 1
 
-    def TogglePlayPause(self, bypass=False, forceRefresh=False, overrideSource=None, overridePlayPosition=None, noReload=False):
-        if not self.guiState and not bypass:
+    def TogglePlayPause(self, bypass=False, toggleBypass=False, forceRefresh=False, overrideSource=None, overridePlayPosition=None, noReload=False):
+        if not self.guiState and not bypass and not toggleBypass:
             self.touchButtonTouched()
 
         else:
             video = self.ids.VideoWidget
             oldPlay = self.play
 
-            if not bypass:
+            if not bypass or toggleBypass:
                 self.play = not self.play
             else:
                 self.play = video.state == "play"
@@ -1607,11 +1719,12 @@ class AniApp(App):
 
         Clock.schedule_interval(infoWindow.refreshDescription, 1 / 60)
         Clock.schedule_interval(infoWindow.refreshEpisodeColours, 1 / 2)
-        # Clock.schedule_interval(infoWindow.updateVars, 1/30)
+        #Clock.schedule_interval(infoWindow.updateVars, 1/2)
         # Clock.schedule_interval(homeWindow.pollSearchInput, 1/10)
 
         Clock.schedule_interval(videoWindow.refresh, 1 / 10)
         Clock.schedule_interval(videoWindow.refreshPositionSlider, 1 / 60)
+        Clock.schedule_interval(videoWindow.VideoSeekTimeUpdater, 1)
 
         windowManager.transition = SlideTransition()
         # windowManager.current = "MainWindow"
