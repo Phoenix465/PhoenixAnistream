@@ -1160,6 +1160,10 @@ class VideoWindow(Widget):
 
     seekTime = 0
     seekingPause = False
+    seekingStartTime = 0
+    seekingLastUpdate = 0
+    seekingCanRegister = False
+    seekingCustomTime = None
 
     def initiate(self, episodeInstance, recentBypass=False):
         def loadVideo(mainWidget, videoWidget, episodeInstance):
@@ -1435,12 +1439,18 @@ class VideoWindow(Widget):
 
     def FastForward(self, bypass=False, *args):
         if self.ids.FastForwardButton.opacity or bypass:
-            #video = self.ids.VideoWidget
 
             #position = min(max(video.position + 5, 0), video.duration)
             #video.seek(position/video.duration, precise=True)
+
+            video = self.ids.VideoWidget
+            video.state = "pause"
+
             self.seekTime += 5
+            self.seekingCustomTime = min(max(video.position + self.seekTime, 0), video.duration)
+            self.seekingLastUpdate = time()
             self.touchTime = time() + 5
+            self.seekingCanRegister = True
 
         else:
             self.touchButtonTouched()
@@ -1451,46 +1461,36 @@ class VideoWindow(Widget):
 
             #position = min(max(video.position - 5, 0), video.duration)
             #video.seek(position/video.duration, precise=True)
+
+            video = self.ids.VideoWidget
+            video.state = "pause"
+
             self.seekTime -= 5
+            self.seekingCustomTime = min(max(video.position + self.seekTime, 0), video.duration)
+            self.seekingLastUpdate = time()
             self.touchTime = time() + 5
+            self.seekingCanRegister = True
 
         else:
             self.touchButtonTouched()
 
     def VideoSeekTimeUpdater(self, *args):
-        def ResetTime(VideoClass, videoPlayer, oldPosition, threshold, initialSeekTime):
-            print("Data", oldPosition, threshold)
-            s = time()
-            for _ in range(50):
-                sleep(0.1)
-                e = time() - s
-
-                if abs(videoPlayer.position - oldPosition) > abs(threshold):
-                    print("Broke On", _, videoPlayer.position, abs(videoPlayer.position-oldPosition))
-                    VideoClass.seekTime -= initialSeekTime
-                    break
-
-            else:
-                print("Failed", videoPlayer.position, e, abs(videoPlayer.position-oldPosition))
-
-            VideoClass.seekingPause = False
-            print("New", videoPlayer.position)
-        if self.parent.manager.current == "VideoPlayer" and self.seekTime and not self.seekingPause:
+        if self.parent.manager.current == "VideoPlayer" and self.seekTime and not self.seekingPause and self.seekingCanRegister:
             video = self.ids.VideoWidget
 
             if video.duration == -1:
                 return
 
-            origSeekTime = self.seekTime
-            self.seekingPause = True
-            oldPos = video.position
-            position = min(max(video.position + self.seekTime, 0), video.duration)
-            changeThreshold = self.seekTime / 2
+            if time() > self.seekingLastUpdate + 1:
+                self.seekingCanRegister = False
 
-            video.seek(position/video.duration, precise=True)
+                video = self.ids.VideoWidget
+                video.state = "play"
 
-            resetThread = threading.Thread(target=ResetTime, args=(self, video, oldPos, changeThreshold, origSeekTime,))
-            resetThread.start()
+                position = min(max(video.position + self.seekTime, 0), video.duration)
+                video.seek(position / video.duration, precise=True)
+                self.seekTime = 0
+                self.seekingCustomTime = None
 
     def refreshPositionSlider(self, *args):
         def convertTimeToDuration(time):
@@ -1538,7 +1538,11 @@ class VideoWindow(Widget):
         title = self.ids.Title
         title.text_size = title.size
 
-        self.positionDurationString = convertTimeToDuration(video.position >= 0 and ceil(video.position) or 0) + " / " + convertTimeToDuration(video.duration >= 0 and ceil(video.duration) or 0)
+        position = video.position >= 0 and ceil(video.position) or 0
+        if self.seekingCustomTime:
+            position = ceil(self.seekingCustomTime)
+
+        self.positionDurationString = convertTimeToDuration(position) + " / " + convertTimeToDuration(video.duration >= 0 and ceil(video.duration) or 0)
         positionDurationText = self.ids.PositionDurationText
         positionDurationText.text_size = positionDurationText.size
         positionDurationText.pos = height*0.02, height*0.02
@@ -1724,7 +1728,7 @@ class AniApp(App):
 
         Clock.schedule_interval(videoWindow.refresh, 1 / 10)
         Clock.schedule_interval(videoWindow.refreshPositionSlider, 1 / 60)
-        Clock.schedule_interval(videoWindow.VideoSeekTimeUpdater, 1)
+        Clock.schedule_interval(videoWindow.VideoSeekTimeUpdater, 1/20)
 
         windowManager.transition = SlideTransition()
         # windowManager.current = "MainWindow"
