@@ -31,12 +31,13 @@
 <VideoInfo@Button>
     background_color: (0, 0, 0, 0)
     background_normal: ''
+    markup: True
 
     size: self.size
     text_size: self.size
     size_hint: None, None
 
-    font_size: 10
+    font_size: 10 * 0.75
 
     halign: "right"
     valign: "middle"
@@ -871,7 +872,7 @@
 
         background_normal: ""
         background_color: (0, 0, 0, 0)
-        pos: root.width*0.02, root.height*(0.9 + 0.01)
+        pos: root.height*0.01, root.height - self.size[1] - root.height*0.01
         size: root.height*0.08, root.height*0.08
 
         on_press: root.BackButtonClicked()
@@ -889,7 +890,7 @@
         background_normal: ""
         background_color: (0, 0, 0, 0)
         pos: root.width-self.size[0], root.height*0.5 - (self.size[1]/2)
-        size: root.height*0.08, root.height*0.08
+        size: root.height*0.08 * 0.75, root.height*0.08 * 0.75
 
         on_press: root.PinToggle()
 
@@ -908,7 +909,7 @@
         background_normal: ""
         background_color: (0, 0, 0, 0)
         pos: root.width-self.size[0] - root.height*0.01, root.height*0.01 #self.size[1]
-        size: root.height*0.08, root.height*0.08
+        size: root.height*0.08 * 0.75, root.height*0.08 * 0.75
 
         on_press: root.FullScreenToggle()
 
@@ -927,7 +928,7 @@
         background_normal: ""
         background_color: (0, 0, 0, 0)
         pos: root.width-self.size[0]*2 - root.height*0.02 - root.height*0.01, root.height*0.01 #self.size[1]
-        size: root.height*0.08, root.height*0.08
+        size: root.height*0.08 * 0.75, root.height*0.08 * 0.75
 
         on_press: root.DownloadToggle()
 
@@ -945,8 +946,8 @@
         opacity: 0
         background_normal: ""
         background_color: (0, 0, 0, 0)
-        size: root.height*0.08, root.height*0.08
-        pos: root.width*0.5 - (4*root.height*0.05*0.55) - 2*(root.height*(0.08+0.02)) - root.height*0.02 - root.height*0.05*4*0.5, root.height*0.01
+        size: root.height*0.08 * 0.75, root.height*0.08 * 0.75
+        pos: root.width-self.size[0]*3 - root.height*0.02*2 - root.height*0.03, root.height*0.01 #self.size[1]
 
         on_press: root.FastForward()
 
@@ -964,9 +965,8 @@
         opacity: 0
         background_normal: ""
         background_color: (0, 0, 0, 0)
-        #    root.width*0.5 - (4*root.height*0.05*0.55) - 2*(root.height*(0.08+0.02)) - root.height*0.02
-        pos: root.width*0.5 - (4*root.height*0.05*0.55) - 2*(root.height*(0.08+0.02)) - root.height*0.02 - root.height*0.05*4*0.5 - root.height*0.08 - root.height*0.02, root.height*0.01
-        size: root.height*0.08, root.height*0.08
+        pos: root.width-self.size[0]*4 - root.height*0.02*3 - root.height*0.03, root.height*0.01 #self.size[1]
+        size: root.height*0.08 * 0.75, root.height*0.08 * 0.75
 
         on_press: root.FastBackward()
 
@@ -997,11 +997,11 @@
         Label:
             id: PositionDurationText
 
-            size: root.width, root.height*0.05*1.25
+            size: root.width, root.height*0.05*1.25 * 0.75
             size_hint: None, None
 
             text: root.positionDurationString
-            font_size: root.height*0.05
+            font_size: root.height*0.05 * 0.75
 
             text_size: self.size
             pos: root.height*0.02, root.height*0.02
@@ -1009,14 +1009,14 @@
         Label:
             id: VolumeText
 
-            size: root.width, root.height*0.05*1.25
+            size: root.width, root.height*0.05*1.25 * 0.75
             size_hint: None, None
 
             text: root.volumeString
-            font_size: root.height*0.05
+            font_size: root.height*0.05 * 0.75
 
             text_size: self.size
-            pos: root.width*0.5 - (4*root.height*0.05*0.55) - 2*(root.height*(0.08+0.02)) - root.height*0.02, root.height*0.015
+            pos: root.width*0.35 - (4*root.height*0.05*0.55) - 2*(root.height*(0.08+0.02)) - root.height*0.02, root.height*0.015
 
     Slider:
         id: DurationSlider
@@ -1027,14 +1027,16 @@
 
         orientation: 'horizontal'
 
-        pos: root.width*0.03/2, root.height*0.05 + root.height*0.03
-        size: root.width*0.97, root.height/36
-        value_track_width: root.height/(36*1.5)
+        pos: root.width*0.03/2, root.height*0.05 #+ root.height*0.03
         value_track_color: 0.1, 0.1, 0.1, 0.8
-        padding: root.height/36
         cursor_image: "resources/circle.png"
         cursor_disabled_image: "resources/circle.png"
-        #cursor_size: root.height/10, root.height/10
+
+        cursor_size: root.height*0.08 * 0.75, root.height*0.08 * 0.75
+        padding: (root.height*0.08 * 0.75) / 4
+        #value_track_width: root.height/(36*1.5)
+        size: root.width*0.97, root.height*0.08*0.75
+        background_width: self.size[1]
 
         on_touch_down: if self.collide_point(*args[1].pos): root.Slider_TouchUpDown(True)
         on_touch_up: if self.collide_point(*args[1].pos): root.Slider_TouchUpDown(False)
@@ -1060,15 +1062,21 @@
         cursor_image: "resources/circle.png"
         cursor_disabled_image: "resources/circle.png"
 
+        cursor_size: root.height*0.08 * 0.75, root.height*0.08 * 0.75
+        padding: (root.height*0.08 * 0.75) / 4
+        #value_track_width: root.height/(36*1.5)
+        #size: root.width*0.97, root.height*0.08*0.75
+        background_width: self.size[1]
+
         # Halfway - Full ScreenX
-        pos: root.width*0.5 - (root.height*(0.08 + 0.02))*2 - root.height*0.02, root.height/36 + root.height*0.01
-        size: root.width*0.5, root.height/36
+        pos: root.width*0.325 - (root.height*(0.08*0.75 + 0.02))*2 - root.height*0.04,  self.padding/2 + root.height*0.01
+        size: root.width*0.5, root.height*0.08*0.75
 
     Button:
         id: RowsButton
 
-        size: root.height*0.1, root.height*0.1
-        pos: root.width - root.height*0.1, root.height * 0.9
+        size: root.height*0.1 * 0.75, root.height*0.1 * 0.75
+        pos: root.width - self.size[0] - root.height*0.01, root.height - self.size[1] - root.height*0.01
 
         background_normal: ""
         background_color: (0, 0, 0, 0)
@@ -1088,7 +1096,7 @@
         GridLayout:
             id: RowsGridLayout
 
-            pos: root.width*0.8, root.height*0.9-self.minimum_height
+            pos: root.width*0.8 - root.height*0.01, root.height - root.height*0.1*0.75 - root.height*0.01 - self.minimum_height
             size: root.width*0.2, self.minimum_height
 
             orientation: "lr-tb"
@@ -1117,7 +1125,7 @@
             id: PlayPauseButton
             background_normal: ""
             background_color: (0, 0, 0, 0)
-            size: root.height*0.3, root.height*0.3
+            size: root.height*0.3 * 0.5, root.height*0.3 * 0.5
             size_hint: None, None
 
             on_press: root.TogglePlayPause()

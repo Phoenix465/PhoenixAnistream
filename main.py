@@ -444,6 +444,10 @@ class HomeWindow(Widget):
         searchBox = self.ids.TextInputSearchBox
         searchQuery = searchBox.text
 
+        #print("WARNING WARNING")
+        #self.parent.manager.transition.direction = 'down'
+        #self.parent.manager.current = "VideoPlayer"
+
         if searchBox.opacity == 1 and self.OldSearchText != searchQuery:
             self.OldSearchText = searchQuery
 
@@ -1165,13 +1169,19 @@ class VideoWindow(Widget):
     seekingCanRegister = False
     seekingCustomTime = None
 
+    videoCounting = 0
+    videoValidity = []
+
     def initiate(self, episodeInstance, recentBypass=False):
-        def loadVideo(mainWidget, videoWidget, episodeInstance):
+        def loadVideo(videoId, mainWidget, videoWidget, episodeInstance):
             def episodeError(instance):
                 instance.mainWidget.Android_back_click(None, 27)
 
             finalUrls = webscraper.extractVideoFiles(episodeInstance.view, mainWidget.chromePath)
             finalUrls = sorted(finalUrls, key=lambda data: int(data[1].split("x")[0]))
+
+            if not mainWidget.videoValidity[videoId]:
+                return
 
             if not len(finalUrls):
                 button = Button(
@@ -1289,12 +1299,16 @@ class VideoWindow(Widget):
 
         Window.bind(on_keyboard=self.Android_back_click)
 
-        threading.Thread(target=loadVideo, args=(self, video, episodeInstance,), daemon=True).start()
+        self.videoValidity.append(True)
+        threading.Thread(target=loadVideo, args=(self.videoCounting, self, video, episodeInstance,), daemon=True).start()
+        self.videoCounting += 1
 
     def Android_back_click(self, window, key, *largs):
         if self.parent.manager.current == "VideoPlayer":
             # Escape
             if key == 27:
+                self.videoValidity[self.videoCounting - 1] = False
+
                 Window.fullscreen = False
                 self.BackButtonClicked(bypass=True)
 
@@ -1509,6 +1523,21 @@ class VideoWindow(Widget):
         else:
             positionSliderInfo.pos = (width*2, height*2)
 
+    def refreshCurrentQuality(self, *args):
+        video = self.ids.VideoWidget
+        source = video.source
+        qualityGrid = self.ids.RowsGridLayout
+
+        if source not in ["", "NA"]:
+            for quality in qualityGrid.children:
+                qSource: str = quality.sourceLink
+                qText: str = quality.text
+                if qSource == source:
+                    if not qText.startswith("[b]") and not qText.endswith("[/b]"):
+                        quality.text = f"[b]{qText}[/b]"
+                else:
+                    quality.text = quality.text.replace("[b]", "").replace("[/b]", "")
+
     def refresh(self, *args):
         def convertTimeToDuration(time):
             return f"{time // 3600:0>2}:{time // 60 - (time // 3600) * 60:0>2}:{time % 60:0>2}" if time >= 3600 else f"{time // 60:0>2}:{time % 60:0>2}"
@@ -1542,22 +1571,35 @@ class VideoWindow(Widget):
         if self.seekingCustomTime:
             position = ceil(self.seekingCustomTime)
 
+        volumeSlider = self.ids.VolumeSlider
+        volumeSlider.y = volumeSlider.padding/2 + height*0.01 if volumeSlider.opacity else -50 - volumeSlider.padding - height*0.01
+
+        volumeSlider.cursor_size = height*0.08 * 0.75, height*0.08 * 0.75
+        volumeSlider.padding = (height*0.08 * 0.75) / 4
+        #durationSlider.value_track_width = height/(36*1.5)
+        volumeSlider.size = width*0.55, height*0.08*0.75
+        volumeSlider.background_width = volumeSlider.size[1]
+
         self.positionDurationString = convertTimeToDuration(position) + " / " + convertTimeToDuration(video.duration >= 0 and ceil(video.duration) or 0)
         positionDurationText = self.ids.PositionDurationText
         positionDurationText.text_size = positionDurationText.size
         positionDurationText.pos = height*0.02, height*0.02
 
-        volumeSlider = self.ids.VolumeSlider
-        volumeSlider.y = height/36 + height*0.01 if volumeSlider.opacity else -50 - height/36 - height*0.01
-
         self.volumeString = f"{int(volumeSlider.value)}%"
         volumeText = self.ids.VolumeText
         volumeText.text_size = volumeText.size
-        volumeText.pos = width * 0.5 - (4 * height * 0.05 * 0.55) - 2*(height*(0.08+0.02)) - height*0.02, height * 0.015
+        volumeText.pos = width * 0.325 - (4 * height * 0.05 * 0.55) - 2*(height*(0.08*0.75+0.02)) - height*0.02, height * 0.01 + (height*0.08 * 0.75) / 4# - volumeText.size[1]/2
 
         durationSlider = self.ids.DurationSlider
         durationSlider.max = ceil(video.duration)
-        durationSlider.y = height*0.1 + height*0.03 if durationSlider.opacity else -50 - height/36 - (height*0.1 + height*0.03)
+        durationSlider.y = height*0.08*0.75 + height*0.01 + durationSlider.padding if durationSlider.opacity else -50 - height/36 - (height*0.1 + height*0.03)
+        
+        durationSlider.cursor_size = height*0.08 * 0.75, height*0.08 * 0.75
+        durationSlider.padding = (height*0.08 * 0.75) / 4
+        #durationSlider.value_track_width = height/(36*1.5)
+        durationSlider.size = width*0.97, height*0.08*0.75
+        durationSlider.background_width = durationSlider.size[1]
+
         #durationSlider.cursor_image = "circle.png" if self.sliderTouched else "blank.png"
         self.normalisedDuration = video.position / video.duration
 
@@ -1566,7 +1608,7 @@ class VideoWindow(Widget):
 
         if not self.sliderTouched:
             self.sliderAdjustCode = True
-            durationSlider.value = ceil(video.position)
+            durationSlider.value = ceil(position)
 
         self.RowClicked(bypass=True)
         self.TogglePlayPause(bypass=True)
@@ -1616,7 +1658,7 @@ class VideoWindow(Widget):
         video = self.ids.VideoWidget
         durationSlider = self.ids.DurationSlider
 
-        if not self.sliderAdjustCode:
+        if not self.sliderAdjustCode and video.loaded:
             video.state = "pause"
             self.TogglePlayPause(bypass=True)
             video.seek(durationSlider.value_normalized, precise=True)
@@ -1643,7 +1685,7 @@ class VideoWindow(Widget):
         width, height = Window.size
 
         grid = self.ids.RowsGridLayout
-        grid.x = self.rowClicked and width*0.8 or width
+        grid.x = self.rowClicked and width*0.8 - height*0.01 or width
         grid.opacity = 1
 
     def TogglePlayPause(self, bypass=False, toggleBypass=False, forceRefresh=False, overrideSource=None, overridePlayPosition=None, noReload=False):
@@ -1729,6 +1771,7 @@ class AniApp(App):
         Clock.schedule_interval(videoWindow.refresh, 1 / 10)
         Clock.schedule_interval(videoWindow.refreshPositionSlider, 1 / 60)
         Clock.schedule_interval(videoWindow.VideoSeekTimeUpdater, 1/20)
+        Clock.schedule_interval(videoWindow.refreshCurrentQuality, 1/10)
 
         windowManager.transition = SlideTransition()
         # windowManager.current = "MainWindow"
