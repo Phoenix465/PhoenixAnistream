@@ -37,6 +37,7 @@ Pygments==2.10.0
 pyinstaller==4.7
 pyinstaller-hooks-contrib==2021.4
 pypiwin32==223
+pypresence==4.2.1
 python-for-android==2021.9.5
 pytoml==0.1.21
 pywin32==302

@@ -59,6 +59,8 @@ import webscraper
 import sys
 from time import time, sleep
 
+from pypresence import Presence
+
 # Back up the reference to the exceptionhook
 sys._excepthook = sys.excepthook
 
@@ -148,6 +150,29 @@ class LongShortPressButton(Factory.Button):
         pass
 
 
+class DiscordRichPresenceHandler:
+    def __init__(self):
+        clientId = 955889481960013888
+
+        self.RPC = None
+
+        if platform == "win":
+            self.RPC = Presence(clientId)
+            self.RPC.connect()
+
+    def update(self, title, state, time):
+        if self.RPC:
+            self.RPC.update(
+                large_image="phoenixanistreamlarge",
+                large_text="Phoenix Anistream",
+                small_image="whitecircle",
+                small_text="v1.0.6",
+                details=title,
+                state=state,
+                start=time
+            )
+
+
 class HomeWindow(Widget):
     padding = NumericProperty(20)
     spacingX = NumericProperty(10)
@@ -187,6 +212,8 @@ class HomeWindow(Widget):
 
     oldRecentWatch = {}
     oldBookmarkedAni = {}
+
+    dRPC = None
 
     # --- Ani Data Updater ---
     def updateVars(self, dt):
@@ -772,13 +799,18 @@ class HomeWindow(Widget):
         if instance.data:
             self.parent.manager.transition.direction = 'down'
             self.parent.manager.current = "AniInfoWindow"
-        
+
+            self.dRPC.update("Idle", None, None)
+
             self.infoWindowWidget.generateAniData(instance.data["ani"], instance.rawExtraNames)
 
         elif instance.restoreLink:
             self.parent.manager.transition.direction = 'down'
             self.parent.manager.current = "VideoPlayer"
+
             data = instance.specialData
+
+            #self.dRPC.update(f"Watching {data[1]}", f"Episode {instance.episodeNumber}", int(time()))
 
             self.videoWindow.initiate(EpisodeWidget(
                 episodeNumber=str(instance.episodeNumber),
@@ -811,9 +843,13 @@ class InfoWindow(Widget):
     videoWindow = None
     aniData = None
 
+    dRPC = None
+
     def BackArrowPressed(self):
         self.parent.manager.transition.direction = 'up'
         self.parent.manager.current = "MainWindow"
+
+        self.dRPC.update(f"Idle", None, None)
 
         self.ids.description.textDescription = ""
         self.ids.EpisodeGridLayout.clear_widgets()
@@ -1172,6 +1208,8 @@ class VideoWindow(Widget):
     videoCounting = 0
     videoValidity = []
 
+    dRPC = None
+
     def initiate(self, episodeInstance, recentBypass=False):
         def loadVideo(videoId, mainWidget, videoWidget, episodeInstance):
             def episodeError(instance):
@@ -1179,6 +1217,21 @@ class VideoWindow(Widget):
 
             finalUrls = webscraper.extractVideoFiles(episodeInstance.view, mainWidget.chromePath)
             finalUrls = sorted(finalUrls, key=lambda data: int(data[1].split("x")[0]))
+
+            privateMode = True
+            storedData = JsonStore("data.json")
+            if "Settings" in storedData and "DiscordRPCMode" in storedData["Settings"]:
+                settings = storedData["Settings"]
+                privateMode = settings["DiscordRPCMode"] != "public"
+            else:
+                data = storedData["Settings"]
+                data["DiscordRPCMode"] = "private"
+                storedData["Settings"] = data
+
+            if privateMode:
+                self.dRPC.update(f"Watching...", None, int(time()))
+            else:
+                self.dRPC.update(f"Watching {episodeInstance.aniTitleGood}", f"Episode {episodeInstance.episodeNumber}", int(time()))
 
             if not mainWidget.videoValidity[videoId]:
                 return
@@ -1319,6 +1372,8 @@ class VideoWindow(Widget):
 
                 self.parent.manager.transition.direction = 'up'
                 self.parent.manager.current = "AniInfoWindow"
+
+                self.dRPC.update(f"Idle", None, None)
 
                 if self.recentBypass:
                     self.infoWindow.generateAniData(self.viewLink, "")
@@ -1742,10 +1797,18 @@ class AniApp(App):
         self.icon = r".\resources\PhoenixAniStream.ico"
         Window.set_title(self.title)
 
+        DiscordRPC = DiscordRichPresenceHandler()
+        DiscordRPC.update("Idle", None, None)
+
         windowManager = WindowManager()
         homeWindow = windowManager.ids.HomeWindow
         infoWindow = windowManager.ids.InfoWindow
         videoWindow = windowManager.ids.VideoWindow
+
+        homeWindow.dRPC = DiscordRPC
+        infoWindow.dRPC = DiscordRPC
+        videoWindow.dRPC = DiscordRPC
+
         videoWindow.appTitle = self.title
         videoWindow.infoWindow = infoWindow
         videoWindow.chromePath = chromePath
