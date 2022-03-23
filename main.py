@@ -152,15 +152,34 @@ class LongShortPressButton(Factory.Button):
 
 class DiscordRichPresenceHandler:
     def __init__(self):
-        clientId = 955889481960013888
+        self.clientId = 955889481960013888
 
         self.RPC = None
 
         if platform == "win":
-            self.RPC = Presence(clientId)
+            self.RPC = Presence(self.clientId)
             self.RPC.connect()
+    
+    def refreshRPC(self):
+        storedData = JsonStore("data.json")
+        isOff = True
+        if "Settings" in storedData and "DiscordRPCMode" in storedData["Settings"]:
+            settings = storedData["Settings"]
+            isOff = settings["DiscordRPCMode"] == "off"
+        else:
+            data = storedData["Settings"]
+            data["DiscordRPCMode"] = "off"
+            storedData["Settings"] = data
+
+        if isOff and self.RPC:
+            self.RPC.close()
+            self.RPC = None
+        elif not isOff and not self.RPC:
+            self.RPC = Presence(self.clientId)
 
     def update(self, title, state, time):
+        self.refreshRPC()
+
         if self.RPC:
             self.RPC.update(
                 large_image="phoenixanistreamlarge",
@@ -1222,7 +1241,7 @@ class VideoWindow(Widget):
             storedData = JsonStore("data.json")
             if "Settings" in storedData and "DiscordRPCMode" in storedData["Settings"]:
                 settings = storedData["Settings"]
-                privateMode = settings["DiscordRPCMode"] != "public"
+                privateMode = settings["DiscordRPCMode"] != "public" or settings["DiscordRPCMode"] == "off"
             else:
                 data = storedData["Settings"]
                 data["DiscordRPCMode"] = "private"
@@ -1557,6 +1576,8 @@ class VideoWindow(Widget):
                 video.state = "play"
 
                 position = min(max(video.position + self.seekTime, 0), video.duration)
+                logging.info(f"Seeker: Changing By {self.seekTime} -> {position}")
+
                 video.seek(position / video.duration, precise=True)
                 self.seekTime = 0
                 self.seekingCustomTime = None
