@@ -60,6 +60,9 @@ import sys
 from time import time, sleep
 
 from pypresence import Presence
+import logging
+print = logging.info
+
 
 # Back up the reference to the exceptionhook
 sys._excepthook = sys.excepthook
@@ -1229,6 +1232,7 @@ class VideoWindow(Widget):
 
     videoCounting = 0
     videoValidity = []
+    pauseToggleRefreshBlocker = False
 
     dRPC = None
 
@@ -1237,9 +1241,12 @@ class VideoWindow(Widget):
             def episodeError(instance):
                 instance.mainWidget.Android_back_click(None, 27)
 
+            # print("Extracting Video")
             finalUrls = webscraper.extractVideoFiles(episodeInstance.view, mainWidget.chromePath)
+            # print("Sorting")
             finalUrls = sorted(finalUrls, key=lambda data: int(data[1].split("x")[0]))
 
+            # print("DiscordRPCMode Handling")
             privateMode = True
             storedData = JsonStore("data.json")
             if "Settings" in storedData and "DiscordRPCMode" in storedData["Settings"]:
@@ -1253,6 +1260,7 @@ class VideoWindow(Widget):
                 data["DiscordRPCMode"] = "private"
                 storedData["Settings"] = data
 
+            # print("Updating Watch Status")
             if privateMode:
                 self.dRPC.update(f"Watching...", None, int(time()))
             else:
@@ -1284,15 +1292,20 @@ class VideoWindow(Widget):
 
             # Exiting before data is received
             if mainWidget.title != "":
+                # print("Doing Video Stuff")
                 mainWidget.finalUrls = finalUrls
 
                 if len(mainWidget.finalUrls) > 0:
+                    # print("Picking Source")
                     videoWidget.source = [data for data in mainWidget.finalUrls if data[0] != "NA"][-1][0]
 
+                    # print("Playing")
                     if not self.isLacking:
                         videoWidget.state = "play"
 
+                    # print("Adding Video Info")
                     for data in finalUrls:
+                        # print("Video Info", data)
                         if data[0] == "NA":
                             newWidget = VideoInfo(text=f"{data[1]} - NA", size=(self.videoInfoWidth, self.videoInfoHeight), sourceLink=data[0])
                         else:
@@ -1300,9 +1313,12 @@ class VideoWindow(Widget):
                         newWidget.bind(on_press=self.VideoInfoButtonClicked)
                         self.ids.RowsGridLayout.add_widget(newWidget)
 
+                    # print("Waiting for Video to Change")
                     while videoWidget.duration == -1 or videoWidget.duration == 1:
+                        # print("Sleeping 0.1")
                         sleep(0.1)
 
+                    # print("Loading Data")
                     storedData = JsonStore("data.json")
 
                     resumeData = GetDataStore(storedData, "ResumeData", default={})
@@ -1310,10 +1326,12 @@ class VideoWindow(Widget):
 
                     recentlyWatchedData = GetDataStore(storedData, "RecentlyWatched", default={})
 
+                    # print("Updating Recent Watched")
                     aniTitle = episodeInstance.aniTitle
                     if aniTitle not in recentlyWatchedData:
                         recentlyWatchedData[aniTitle] = {}
 
+                    # print("Updating Recent Watche 2")
                     recentlyWatchedData[aniTitle][str(episodeInstance.episodeNumber)] = [
                         time(),
                         episodeInstance.aniTitleGood,
@@ -1326,7 +1344,9 @@ class VideoWindow(Widget):
                     ]
                     storedData["RecentlyWatched"] = recentlyWatchedData
 
+                    # print("Toggle IF")
                     if timePos and not self.isLacking:
+                        mainWidget.pauseToggleRefreshBlocker = True
                         mainWidget.TogglePlayPause(bypass=True, forceRefresh=True, overridePlayPosition=max(timePos-5, 0))
 
                     # mainWidget.touchTime = time() + mainWidget.touchDuration
@@ -1392,9 +1412,14 @@ class VideoWindow(Widget):
                 self.BackButtonClicked(bypass=True)
 
                 video = self.ids.VideoWidget
-                #video.state = "stop"
-                video.unload()
+                #video.unload()
                 video.source = ""
+                video.state = "stop"
+
+                self.play = False
+                # imageSource = not self.play and "resources/PlayButtonW.png" or "resources/PauseButtonW.png"
+                # image = self.ids.PlayPauseButtonImage
+                # image.source = imageSource
 
                 self.parent.manager.transition.direction = 'up'
                 self.parent.manager.current = "AniInfoWindow"
@@ -1541,6 +1566,11 @@ class VideoWindow(Widget):
             video = self.ids.VideoWidget
             video.state = "pause"
 
+            self.play = False
+            imageSource = not self.play and "resources/PlayButtonW.png" or "resources/PauseButtonW.png"
+            image = self.ids.PlayPauseButtonImage
+            image.source = imageSource
+
             self.seekTime += 5
             self.seekingCustomTime = min(max(video.position + self.seekTime, 0), video.duration)
             self.seekingLastUpdate = time()
@@ -1559,6 +1589,11 @@ class VideoWindow(Widget):
 
             video = self.ids.VideoWidget
             video.state = "pause"
+
+            self.play = False
+            imageSource = not self.play and "resources/PlayButtonW.png" or "resources/PauseButtonW.png"
+            image = self.ids.PlayPauseButtonImage
+            image.source = imageSource
 
             self.seekTime -= 5
             self.seekingCustomTime = min(max(video.position + self.seekTime, 0), video.duration)
@@ -1581,6 +1616,11 @@ class VideoWindow(Widget):
 
                 video = self.ids.VideoWidget
                 video.state = "play"
+
+                self.play = True
+                imageSource = not self.play and "resources/PlayButtonW.png" or "resources/PauseButtonW.png"
+                image = self.ids.PlayPauseButtonImage
+                image.source = imageSource
 
                 position = min(max(video.position + self.seekTime, 0), video.duration)
                 logging.info(f"Seeker: Changing By {self.seekTime} -> {position}")
@@ -1694,7 +1734,8 @@ class VideoWindow(Widget):
             durationSlider.value = ceil(position)
 
         self.RowClicked(bypass=True)
-        self.TogglePlayPause(bypass=True)
+        # COMMENTED SEARCH
+        # self.TogglePlayPause(bypass=True)
 
         guis = [
             title,
@@ -1727,6 +1768,7 @@ class VideoWindow(Widget):
         if instance.sourceLink == "NA" or self.ids.VideoWidget.source == instance.sourceLink:
             return
 
+        self.pauseToggleRefreshBlocker = True
         self.TogglePlayPause(bypass=True, forceRefresh=True, overrideSource=instance.sourceLink)
 
     def touchButtonTouched(self):
@@ -1743,9 +1785,12 @@ class VideoWindow(Widget):
 
         if not self.sliderAdjustCode and video.loaded:
             video.state = "pause"
+            # print("Adjusting Slider")
+
             self.TogglePlayPause(bypass=True)
             video.seek(durationSlider.value_normalized, precise=True)
             video.state = "play"
+
             self.TogglePlayPause(bypass=True)
 
             self.touchTime = time() + 5
@@ -1772,6 +1817,10 @@ class VideoWindow(Widget):
         grid.opacity = 1
 
     def TogglePlayPause(self, bypass=False, toggleBypass=False, forceRefresh=False, overrideSource=None, overridePlayPosition=None, noReload=False):
+        # if self.pauseToggleRefreshBlocker and (overridePlayPosition is None and overrideSource is None):
+        #     return
+            #pass
+
         if not self.guiState and not bypass and not toggleBypass:
             self.touchButtonTouched()
 
@@ -1784,7 +1833,9 @@ class VideoWindow(Widget):
             else:
                 self.play = video.state == "play"
 
-            self.ids.PlayPauseButtonImage.source = not self.play and "resources/PlayButtonW.png" or "resources/PauseButtonW.png"
+            imageSource = not self.play and "resources/PlayButtonW.png" or "resources/PauseButtonW.png"
+            image = self.ids.PlayPauseButtonImage
+            image.source = imageSource
 
             video.state = self.play and "play" or "pause"
 
@@ -1792,6 +1843,14 @@ class VideoWindow(Widget):
                 self.pauseTime = time()
 
                 logging.info(f"Reloader: Reloading Source")
+
+                for _ in range(10):
+                    sleep(0.5)
+
+                    if video.duration != 1:
+                        break
+                else:
+                    logging.info(f"Reloader: Video Duration Timeout")
 
                 durationSlider = self.ids.DurationSlider
                 currentNormalValue = durationSlider.value_normalized
@@ -1805,14 +1864,15 @@ class VideoWindow(Widget):
                 video.source = oldSource
                 video.state = "play"
 
-                def seekNormalTime(seekVal):
+                def seekNormalTime(selfObj, seekVal):
                     sleep(1)
                     logging.info(f"Reloader: Seeking to {seekVal}")
 
                     video.seek(seekVal, precise=True)
-                    self.sliderTouched = False
+                    selfObj.sliderTouched = False
+                    selfObj.pauseToggleRefreshBlocker = False
 
-                threading.Thread(target=seekNormalTime, args=(currentNormalValue,), daemon=True).start()
+                threading.Thread(target=seekNormalTime, args=(self, currentNormalValue,), daemon=True).start()
 
 
 class AniApp(App):
@@ -1849,18 +1909,18 @@ class AniApp(App):
         Clock.schedule_once(homeWindow.updateLatestAniData, 0)
         Clock.schedule_once(homeWindow.setWidget, -1)
 
-        Clock.schedule_interval(homeWindow.updateVars, 1 / 30)
-        Clock.schedule_interval(homeWindow.updateAniWidgets, 1 / 60)
+        Clock.schedule_interval(homeWindow.updateVars, 1 / 20)
+        Clock.schedule_interval(homeWindow.updateAniWidgets, 1 / 30)
         Clock.schedule_interval(homeWindow.RefreshRecentlyWatched, 1)
         Clock.schedule_interval(homeWindow.RefreshBookmarkedAni, 1)
 
-        Clock.schedule_interval(infoWindow.refreshDescription, 1 / 60)
+        Clock.schedule_interval(infoWindow.refreshDescription, 1 / 20)
         Clock.schedule_interval(infoWindow.refreshEpisodeColours, 1 / 2)
         #Clock.schedule_interval(infoWindow.updateVars, 1/2)
         # Clock.schedule_interval(homeWindow.pollSearchInput, 1/10)
 
-        Clock.schedule_interval(videoWindow.refresh, 1 / 10)
-        Clock.schedule_interval(videoWindow.refreshPositionSlider, 1 / 60)
+        Clock.schedule_interval(videoWindow.refresh, 1 / 5)
+        Clock.schedule_interval(videoWindow.refreshPositionSlider, 1 / 20)
         Clock.schedule_interval(videoWindow.VideoSeekTimeUpdater, 1/20)
         Clock.schedule_interval(videoWindow.refreshCurrentQuality, 1/10)
 
