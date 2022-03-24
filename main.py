@@ -167,6 +167,9 @@ class DiscordRichPresenceHandler:
             settings = storedData["Settings"]
             isOff = settings["DiscordRPCMode"] == "off"
         else:
+            if "Settings" not in storedData:
+                storedData["Settings"] = {}
+
             data = storedData["Settings"]
             data["DiscordRPCMode"] = "off"
             storedData["Settings"] = data
@@ -1188,7 +1191,7 @@ class VideoWindow(Widget):
     touchTime = time()
     touchDuration = 5
     pauseTime = time()
-    pauseTimeOutRefresh = 50
+    pauseTimeOutRefresh = 30
 
     play = True
     guiState = 0
@@ -1243,6 +1246,9 @@ class VideoWindow(Widget):
                 settings = storedData["Settings"]
                 privateMode = settings["DiscordRPCMode"] != "public" or settings["DiscordRPCMode"] == "off"
             else:
+                if "Settings" not in storedData:
+                    storedData["Settings"] = {}
+
                 data = storedData["Settings"]
                 data["DiscordRPCMode"] = "private"
                 storedData["Settings"] = data
@@ -1343,6 +1349,7 @@ class VideoWindow(Widget):
                     button.bind(on_release=popup.dismiss)
                     popup.open()
 
+
         video = self.ids.VideoWidget
         self.recentBypass = recentBypass
         self.viewLink = episodeInstance.aniUrl
@@ -1385,9 +1392,9 @@ class VideoWindow(Widget):
                 self.BackButtonClicked(bypass=True)
 
                 video = self.ids.VideoWidget
-                video.state = "stop"
-                video.source = ""
+                #video.state = "stop"
                 video.unload()
+                video.source = ""
 
                 self.parent.manager.transition.direction = 'up'
                 self.parent.manager.current = "AniInfoWindow"
