@@ -160,9 +160,12 @@ class DiscordRichPresenceHandler:
         self.RPC = None
 
         if platform == "win":
-            self.RPC = Presence(self.clientId)
-            self.RPC.connect()
-    
+            try:
+                self.RPC = Presence(self.clientId)
+                self.RPC.connect()
+            except:
+                self.RPC = None
+
     def refreshRPC(self):
         storedData = JsonStore("data.json")
         isOff = True
@@ -181,7 +184,11 @@ class DiscordRichPresenceHandler:
             self.RPC.close()
             self.RPC = None
         elif not isOff and not self.RPC:
-            self.RPC = Presence(self.clientId)
+            try:
+                self.RPC = Presence(self.clientId)
+                self.RPC.connect()
+            except:
+                self.RPC = None
 
     def update(self, title, state, time):
         self.refreshRPC()
