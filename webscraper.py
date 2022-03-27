@@ -15,7 +15,11 @@ from user_agent import generate_navigator_js
 from selenium.webdriver.chrome.options import Options
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
-from subprocess import CREATE_NO_WINDOW
+
+from kivy.utils import platform
+if platform == "win":
+    from subprocess import CREATE_NO_WINDOW
+
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
@@ -360,7 +364,8 @@ def GetSourceSelenium(*args):
 
     sS = time()
     service = Service(chromePath)
-    service.creationflags = CREATE_NO_WINDOW
+    if platform == "win":
+        service.creationflags = CREATE_NO_WINDOW
 
     chrome_options = Options()
     chrome_options.add_argument("--headless")

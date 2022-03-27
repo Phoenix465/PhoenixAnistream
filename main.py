@@ -46,7 +46,8 @@ from kivy.factory import Factory
 
 import os.path as path
 from os import mkdir
-from KivyOnTop import register_topmost, unregister_topmost
+if platform == "win":
+    from KivyOnTop import register_topmost, unregister_topmost
 
 # from kivy.loader import Loader
 # Loader.loading_image = "loading.gif"
