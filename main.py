@@ -1466,6 +1466,9 @@ class VideoWindow(Widget):
 
                 return True
 
+            elif key == 102:
+                self.FullScreenToggle()
+
             # N
             elif key == 110:
                 if self.lackingEnabled:
