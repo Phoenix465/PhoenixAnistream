@@ -23,6 +23,10 @@ jobs:
         ./configure
         make
         sudo make install
+        
+    - name: Install Charset Normalizer
+      run: |
+        sudo port install py310-charset-normalizer
     
     - name: Setting Up Python3
       run: |
@@ -42,3 +46,36 @@ jobs:
     - name: Pyinstaller Build
       run: |
         pyinstaller --clean -y --dist ./dist/mac --workpath /tmp buildM.spec 
+        
+    - name: Pyinstaller Build
+      run: |
+        pushd dist/mac
+        hdiutil create ./PhoenixAnistream.dmg -srcfolder PhoenixAnistream.app -ov
+        popd
+
+    - uses: actions/upload-artifact@v2
+      with:
+        name: PhoenixAnistreamMacBuild
+        path: ./PhoenixAnistream.dmg
+        
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: true
+        prerelease: false
+        
+    - name: Upload Release Asset
+      id: upload-release-asset 
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
+        asset_path: ./PhoenixAnistream.dmg
+        asset_name: PhoenixAnistream.dmg
+        asset_content_type: application/x-apple-diskimage
