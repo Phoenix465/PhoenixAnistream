@@ -31,7 +31,6 @@ jobs:
     - name: Install Charset Normalizer
       run: |
         export PATH=$PATH:/opt/local/bin
-        sudo port select --set python3 python39
         sudo port -v selfupdate
         sudo port install py310-charset-normalizer
     
