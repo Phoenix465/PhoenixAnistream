@@ -9,10 +9,10 @@ on:
 jobs:
   build:
 
-    runs-on: macos-latest
+    runs-on: macOS-10.14
     
     steps:
-    - name: Set Brews
+    - name: Set Up Brewing Installations
       run: |
         brew install python3
         brew reinstall --build-from-source sdl2 sdl2_image sdl2_ttf sdl2_mixer
