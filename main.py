@@ -1480,7 +1480,7 @@ class VideoWindow(Widget):
 
             # P
             elif key == 112:
-                self.PinToggle()
+                self.PinToggle(bypass=True)
 
             # Space
             elif key == 32 and not self.isLacking:
@@ -1530,9 +1530,9 @@ class VideoWindow(Widget):
         else:
             self.touchButtonTouched()
 
-    def PinToggle(self, reloadImage=False):
+    def PinToggle(self, reloadImage=False, bypass=False):
         if not reloadImage:
-            if self.ids.PinButton.opacity and platform == "win":
+            if (self.ids.PinButton.opacity or bypass) and platform == "win":
                 self.pinned = not self.pinned
 
                 self.ids.PinImage.source = self.pinned and "resources/pinC.png" or "resources/pin.png"
@@ -1690,7 +1690,14 @@ class VideoWindow(Widget):
             if self.isLacking:
                 self.ids.VideoWidget.state = "pause"
 
-        self.videoInfoWidth = width * 0.2
+        rowsGridLayout = self.ids.RowsGridLayout
+        maxW = 0
+        for child in rowsGridLayout.children:
+            maxW = max(maxW, len([char for char in child.text if char.lower() in "MBNA0123456789. "]) * height/30 * 0.75)
+
+        rowsGridLayout.width = maxW
+
+        self.videoInfoWidth = maxW# width * 0.22
         self.videoInfoHeight = height/30 * 2
 
         children = self.ids.RowsGridLayout.children
@@ -1780,6 +1787,9 @@ class VideoWindow(Widget):
             gui.opacity = state
 
     def VideoInfoButtonClicked(self, instance, value=None):
+        if self.ids.RowsGridLayout.opacity == 0:
+            return
+
         if instance.sourceLink == "NA" or self.ids.VideoWidget.source == instance.sourceLink:
             return
 
@@ -1828,7 +1838,7 @@ class VideoWindow(Widget):
         width, height = Window.size
 
         grid = self.ids.RowsGridLayout
-        grid.x = self.rowClicked and width*0.8 - height*0.01 or width
+        grid.x = self.rowClicked and width - grid.width - height*0.01 or width
         grid.opacity = 1
 
     def TogglePlayPause(self, bypass=False, toggleBypass=False, forceRefresh=False, overrideSource=None, overridePlayPosition=None, noReload=False):

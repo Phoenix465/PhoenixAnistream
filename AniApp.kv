@@ -1096,8 +1096,8 @@
         GridLayout:
             id: RowsGridLayout
 
-            pos: root.width*0.8 - root.height*0.01, root.height - root.height*0.1*0.75 - root.height*0.01 - self.minimum_height
-            size: root.width*0.2, self.minimum_height
+            pos: root.width - self.size[0] - root.height*0.01, root.height - root.height*0.1*0.75 - root.height*0.01 - self.minimum_height
+            size: root.width*0.22, self.minimum_height
 
             orientation: "lr-tb"
             size_hint: 1, None
