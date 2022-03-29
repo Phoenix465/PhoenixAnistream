@@ -12,8 +12,11 @@ jobs:
     runs-on: macOS-10.14
     
     steps:
+    - uses: actions/checkout@v2
+    
     - name: Building Macports
       run: |
+        ls
         curl -O https://distfiles.macports.org/MacPorts/MacPorts-2.7.2.tar.bz2
         tar xf MacPorts-2.7.2.tar.bz2
         cd MacPorts-2.7.2/
@@ -34,8 +37,7 @@ jobs:
         pip3 install Cython==0.29.28
         pip3 install -U kivy
         pip3 install -U pyinstaller
-        ls
-        pip3 instal -r requirementsMac.txt
+        pip3 install -r requirementsMac.txt
     
     - name: Pyinstaller Build
       run: |
