@@ -12,6 +12,15 @@ jobs:
     runs-on: macOS-10.14
     
     steps:
+    - name: Building Macports
+      run: |
+        curl -O https://distfiles.macports.org/MacPorts/MacPorts-2.7.2.tar.bz2
+        tar xf MacPorts-2.7.2.tar.bz2
+        cd MacPorts-2.7.2/
+        ./configure
+        make
+        sudo make install
+    
     - name: Setting Up Python3
       run: |
         brew install python3
