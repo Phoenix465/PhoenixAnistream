@@ -1478,6 +1478,10 @@ class VideoWindow(Widget):
                         self.play = False
                         self.TogglePlayPause(bypass=True, noReload=True)
 
+            # P
+            elif key == 112:
+                self.PinToggle()
+
             # Space
             elif key == 32 and not self.isLacking:
                 self.TogglePlayPause(toggleBypass=True)
