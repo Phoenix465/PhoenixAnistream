@@ -5,7 +5,5 @@ An Cross-Platform Anime App
  - Playing Video
  - Bookmark
  - Recently Watched
+ - On Top of Everything ( Windows Only )
  - etc... 
-
- (13/12/2021): Finished!!
- (31/12/2021): Final Update? 

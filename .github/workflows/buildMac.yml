@@ -1,22 +1,83 @@
-name: Build Mac App with PyInstaller using Old Windows Build
+name: Build Mac App with PyInstaller
 
 on:
   workflow_dispatch:
     inputs:
-      actionDownloadLink:
-        required: true
-        description: 'Windows Build Link'
+      tags:
+        description: 'Test Build Tags'
+
 jobs:
   build:
 
-    runs-on: macos-latest
-
+    runs-on: macOS-10.14
+    
     steps:
-    - name: Download the Artifact From Windows Build
-      run:  |
-        echo "Link ${{ github.event.inputs.actionDownloadLink }}"
-        mkdir dist
-        curl ${{ github.event.inputs.actionDownloadLink }} -o "dist/PhoenixAnistreamWindowsBuild.zip"
+    - uses: actions/checkout@v2
+    
+    - name: Building Macports
+      run: |
         ls
-        cd dist
-        ls
+        curl -O https://distfiles.macports.org/MacPorts/MacPorts-2.7.2.tar.bz2
+        tar xf MacPorts-2.7.2.tar.bz2
+        cd MacPorts-2.7.2/
+        ./configure
+        make
+        sudo make install
+    
+    - name: Setting Up Python3
+      run: |
+        brew install python3
+    
+    - name: Install Charset Normalizer
+      run: |
+        export PATH=$PATH:/opt/local/bin
+        sudo port -v selfupdate
+        sudo port install py310-charset-normalizer
+    
+    - name: Setting Up Brewing Installations
+      run: |
+        brew reinstall --build-from-source sdl2 sdl2_image sdl2_ttf sdl2_mixer
+
+    - name: Pip Downloads
+      run: |
+        pip3 install Cython==0.29.28
+        pip3 install -U kivy
+        pip3 install -U pyinstaller
+        pip3 install -r requirementsMac.txt
+    
+    - name: Pyinstaller Build
+      run: |
+        pyinstaller --clean -y --dist ./dist/mac --workpath /tmp buildM.spec 
+        
+    - name: Creating DMG
+      run: |
+        pushd dist/mac
+        hdiutil create ./PhoenixAnistream.dmg -srcfolder PhoenixAnistream.app -ov
+        popd
+
+    - uses: actions/upload-artifact@v2
+      with:
+        name: PhoenixAnistreamMacBuild
+        path: ./dist/mac/PhoenixAnistream.dmg
+        
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: true
+        prerelease: false
+        
+    - name: Upload Release Asset
+      id: upload-release-asset 
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
+        asset_path: ./dist/mac/PhoenixAnistream.dmg
+        asset_name: PhoenixAnistream.dmg
+        asset_content_type: application/x-apple-diskimage
