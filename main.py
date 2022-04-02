@@ -1467,7 +1467,7 @@ class VideoWindow(Widget):
                 return True
 
             elif key == 102:
-                self.FullScreenToggle()
+                self.FullScreenToggle(bypass=True)
 
             # N
             elif key == 110:
@@ -1549,11 +1549,11 @@ class VideoWindow(Widget):
         if reloadImage:
             self.ids.PinImage.source = self.pinned and "resources/pinC.png" or "resources/pin.png"
 
-    def FullScreenToggle(self, *args):
+    def FullScreenToggle(self, *args, bypass=False):
         fullScreenImage = self.ids.FullScreenImage
         imagePath = fullScreenImage.source
 
-        if self.ids.FullScreenButton.opacity:
+        if self.ids.FullScreenButton.opacity or bypass:
             if "On" in imagePath:
                 Window.fullscreen = "auto"
                 fullScreenImage.source = "resources/FullScreenOff.png"
@@ -1904,7 +1904,12 @@ class AniApp(App):
     videoWindow = None
 
     def build(self):
-        chromePath = ChromeDriverManager().install()
+        rVersion = None
+        if webscraper.isConnected():
+            rVersion = requests.get("https://chromedriver.storage.googleapis.com/LATEST_RELEASE")
+
+        version = rVersion.text if rVersion and rVersion.status_code == 200 else None
+        chromePath = ChromeDriverManager(version=version).install()
 
         self.title = 'PhoenixAnistream'
         self.icon = r".\resources\PhoenixAniStream.ico"
