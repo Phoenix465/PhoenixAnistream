@@ -1,7 +1,5 @@
 import os
 
-from webdriver_manager.chrome import ChromeDriverManager
-
 try:
     os.mkdir("logs")
 except:
@@ -199,7 +197,7 @@ class DiscordRichPresenceHandler:
                 large_image="phoenixanistreamlarge",
                 large_text="Phoenix Anistream",
                 small_image="whitecircle",
-                small_text="v1.0.6",
+                small_text="v2.0.0",
                 details=title,
                 state=state,
                 start=time
@@ -1229,8 +1227,6 @@ class VideoWindow(Widget):
     infoWindow = None
     viewLink = ""
 
-    chromePath = ""
-
     seekTime = 0
     seekingPause = False
     seekingStartTime = 0
@@ -1250,7 +1246,7 @@ class VideoWindow(Widget):
                 instance.mainWidget.Android_back_click(None, 27)
 
             # print("Extracting Video")
-            finalUrls = webscraper.extractVideoFiles(episodeInstance.view, mainWidget.chromePath)
+            finalUrls = webscraper.extractVideoFiles(episodeInstance.view)
             # print("Sorting")
             finalUrls = sorted(finalUrls, key=lambda data: int(data[1].split("x")[0]))
 
@@ -1788,6 +1784,7 @@ class VideoWindow(Widget):
 
     def VideoInfoButtonClicked(self, instance, value=None):
         if self.ids.RowsGridLayout.opacity == 0:
+            self.touchButtonTouched()
             return
 
         if instance.sourceLink == "NA" or self.ids.VideoWidget.source == instance.sourceLink:
@@ -1904,13 +1901,6 @@ class AniApp(App):
     videoWindow = None
 
     def build(self):
-        rVersion = None
-        if webscraper.isConnected():
-            rVersion = requests.get("https://chromedriver.storage.googleapis.com/LATEST_RELEASE")
-
-        version = rVersion.text if rVersion and rVersion.status_code == 200 else None
-        chromePath = ChromeDriverManager(version=version).install()
-
         self.title = 'PhoenixAnistream'
         self.icon = r".\resources\PhoenixAniStream.ico"
         Window.set_title(self.title)
@@ -1929,7 +1919,6 @@ class AniApp(App):
 
         videoWindow.appTitle = self.title
         videoWindow.infoWindow = infoWindow
-        videoWindow.chromePath = chromePath
         self.videoWindow = videoWindow
         homeWindow.infoWindowWidget = infoWindow
         infoWindow.videoWindow = videoWindow

@@ -9,28 +9,29 @@ import bs4
 import requests
 import cchardet
 import socket
-
-#import line_profiler_pycharm
+from time import time, sleep
 from user_agent import generate_navigator_js
-from selenium.webdriver.chrome.options import Options
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
 
 from kivy.utils import platform
-if platform == "win":
-    from subprocess import CREATE_NO_WINDOW
-
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.wait import WebDriverWait
-from selenium.common.exceptions import NoSuchElementException
-from time import sleep, time
 import threading
 
 headers = {
     "User-Agent": 'Mozilla/5.0 (Windows NT 6.3; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.115 Safari/537.36'
 }
 
+
+altHashRegex = 'name="hash" value="(.*?)"'
+
+downloadUrlRegex = (
+    r"<span style=\"background:#f9f9f9;border:1px dotted #bbb;padding:7px;\">\n"
+    r"<a href=\"(.*?)\">Direct Download Link<\/a>\n"
+    r"<\/span>")
+
+scrapeServers = [
+    "https://sbplay2-token-grabber.herokuapp.com/",
+    "https://sbplay2-token-grabber2.herokuapp.com/",
+    "https://sbplay2-token-grabber3.herokuapp.com/",
+]
 
 def isConnected():
     try:
@@ -348,100 +349,115 @@ def GetAniData(aniUrl):
 
     return None, None, None, None, None
 
-def GetSourceSelenium(*args):
-    def driverQuit(driver):
-        driver.quit()
 
-    chromePath, url, resultQueue, threadI = args[0]
+def GetDownloadLink(link, functionParam, threadI, resultsQueue, overrideIndex=None):
+    serverId = 0
+    serverUrl = ""
+    for i in range(3):
+        serverR = requests.get(scrapeServers[i])
+        if serverR.status_code == 200:
+            serverUrl = scrapeServers[i] + "api2/GetToken"
+            serverId = i
+            break
+    else:
+        logging.info(f"Webscraper: Token Grabber {threadI} Failed, No Available Servers")
 
-    mainUA = generate_navigator_js()
-    ua = mainUA["userAgent"]
-    while "Trident" in ua:
+    logging.info(f"Webscraper: Token Grabber {threadI}, Picked Server {serverUrl}")
+
+    hashQueue = queue.Queue()
+
+    def getAltHash(url, queue):
+        sH = time()
+        urlR = requests.get(url, headers=headers)
+        urlContent = urlR.content.decode("utf-8")
+
+        matches = re.finditer(altHashRegex, urlContent, re.MULTILINE)
+        altHash = ""
+        for matchNum, match in enumerate(matches, start=1):
+            altHash = match.group(1)
+
+        queue.put(altHash)
+
+    hashThread = threading.Thread(target=getAltHash, args=(link, hashQueue,))
+    hashThread.start()
+    alternateHash = ""
+
+    allInvalid = True
+
+    for i in range(5):
+        rUrl = serverUrl
+        r = requests.get(rUrl, headers=headers)
+        recaptchaToken = r.content.decode("utf-8")
+        #print(threadI, i, recaptchaToken)
+
+        if not alternateHash:
+            if hashThread.is_alive():
+                hashThread.join()
+                print(threadI, i, "Thread Not Finished")
+
+            alternateHash = hashQueue.get()
+            #hashThread = threading.Thread(target=getAltHash, args=(link, hashQueue,))
+            #hashThread.start()
+
+        data = {
+            "op": "download_orig",
+            "id": functionParam[0],
+            "mode": functionParam[1],
+            "hash": alternateHash,
+            "g-recaptcha-response": recaptchaToken,
+        }
+
         mainUA = generate_navigator_js()
         ua = mainUA["userAgent"]
+        while "Trident" in ua:
+            mainUA = generate_navigator_js()
+            ua = mainUA["userAgent"]
 
-    logging.info(f"Webscraper: SeleniumScrape{threadI} - UserAgent {ua} MainUserAgent {mainUA}")
+        x = requests.post(link, data=data, headers={"User-Agent": ua})
 
-    sS = time()
-    service = Service(chromePath)
-    if platform == "win":
-        service.creationflags = CREATE_NO_WINDOW
+        downloadUrl = ""
 
-    chrome_options = Options()
-    chrome_options.add_argument("--headless")
-    chrome_options.add_argument(f"--user-agent={ua}")
-    # chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--disable-extensions")
-    # chrome_options.add_argument("--proxy-server='direct://'")
-    # chrome_options.add_argument("--proxy-bypass-list=*")
-    prefs = {"profile.managed_default_content_settings.images": 2}
-    chrome_options.add_experimental_option("prefs", prefs)
+        downloadContent = x.content.decode("utf-8")
 
-    eS = time() - sS
+        if "6210" in downloadContent:
+            logging.info(f"Webscraper: Token Grabber {threadI} - Invalid Token...")
+        else:
+            pass
+            #allInvalid = False
 
-    s1 = time()
-    driver = webdriver.Chrome(service=service, options=chrome_options)
-    eDriver = time() - s1
+        matches = re.finditer(downloadUrlRegex, downloadContent, re.MULTILINE)
 
-    s2 = time()
+        for matchNum, match in enumerate(matches, start=1):
+            downloadUrl = match.group(1)
 
-    sGet = time()
-    driver.get(url)
-    driver.switch_to.window(driver.window_handles[-1])
-    eGet = time() - sGet
-
-    sSearch = time()
-    for _ in range(5):
-        try:
-            element = WebDriverWait(driver, 1).until(
-                EC.visibility_of_element_located((By.CLASS_NAME, "g-recaptcha"))
-            )
-            element.click()
-        except:
+        if downloadUrl:
+            logging.info(f"Webscraper: Token Grabber {threadI} Successful, at {i}")
+            resultsQueue.put((threadI, downloadUrl))
             break
 
         sleep(0.1)
 
-        try:
-            driver.find_element(By.CLASS_NAME, "g-recaptcha")
-        except NoSuchElementException:
-            break
+        logging.info(f"Webscraper: Token Grabber {threadI} - Post Failed at {i}")
+
     else:
-        logging.info(f"Webscraper: SeleniumScrape{threadI} - Exited Button Location Maturely")
+        if allInvalid:
+            serverId += 1
 
-    eSearch = time() - sSearch
+            if serverId <= 3:
+                logging.info(f"Webscraper: Token Grabber {threadI} Failed - Out of Tries, Retrying in Server {serverId}")
+                GetDownloadLink(link, functionParam, threadI, resultsQueue, overrideIndex=serverId)
+                return
 
-    passed = True
-    try:
-        WebDriverWait(driver, 5).until(
-            EC.visibility_of_element_located((By.CLASS_NAME, "rc"))
-        )
-    except:
-        logging.info(f"Webscraper: SeleniumScrape{threadI} - Failed to Locate Video Data within TimeOut")
-        passed = False
-
-    if passed:
-        source = driver.page_source
-        if resultQueue:
-            resultQueue.put([threadI, source])
-
-    e1 = time() - s1
-    e2 = time() - s2
-    sQ = time()
-    threading.Thread(target=driverQuit, args=(driver,), daemon=True).start()
-    # driver.quit()
-    eQ = time() - sQ
-    logging.info(f"Webscraper: SeleniumScrape{threadI} - Total {e1} Get {eGet} Scrape {e2} Driver {eDriver} Settings {eS} Search {eSearch} Quit {eQ}")
-
-    return source if passed else None
+        resultsQueue.put((threadI, "NA"))
+        logging.info(f"Webscraper: Token Grabber {threadI} Failed - Out of Tries")
 
 
-def extractVideoFiles(aniEpUrl, chromePath, repeat=5, currentRepeat=0):
+def extractVideoFiles(aniEpUrl, repeat=5, currentRepeat=0):
     def getUrlProtocolDomain(url):
         urlParsed = urlparse(url)
         return urlParsed.scheme, urlParsed.netloc, urlParsed.path.split("/")[1]
 
-    def recursiveGetVideoUrl(url, chromePath, finished=False, finalIndexOverride=None):
+    def recursiveGetVideoUrl(url, finished=False, finalIndexOverride=None):
         newUrl = url
         logging.info(f"Webscraper: Requesting {url}")
 
@@ -508,14 +524,13 @@ def extractVideoFiles(aniEpUrl, chromePath, repeat=5, currentRepeat=0):
 
                             s = time()
 
+                            results = queue.Queue()
                             threads = []
 
-                            results = queue.Queue()
-
                             for i, link in enumerate(links):
-                                thread = threading.Thread(target=GetSourceSelenium, args=((chromePath, link, results, i),))
+                                logging.info(f"Webscraper: Grabbing Download Link for {link} for thread {i}")
+                                thread = threading.Thread(target=GetDownloadLink, args=(link, functionParams[i], i, results))
                                 threads.append(thread)
-                                # GetSource(chromePath, url, results)
 
                             for thread in threads:
                                 thread.start()
@@ -523,25 +538,15 @@ def extractVideoFiles(aniEpUrl, chromePath, repeat=5, currentRepeat=0):
                             for thread in threads:
                                 thread.join()
 
-                            #newUrl = [recursiveGetVideoUrl(]
-
                             unsyncSourcesData = list(results.queue)
-                            sources = [""] * len(downloadInfo)
+                            downloadLinks = [""] * len(downloadInfo)
                             for sourceData in unsyncSourcesData:
-                                sources[sourceData[0]] = sourceData[1]
-
-                            """
-                            a
-                            with Pool(len(links)) as p:
-                                sources = p.map(GetSourceSelenium, [(chromePath, link, None,) for link in links])
-                            """
+                                downloadLinks[sourceData[0]] = sourceData[1]
 
                             e = time() - s
-                            logging.info(f"Webscraper: SeleniumTotal {e}")
+                            logging.info(f"Webscraper: Token Grab Total {e}")
 
-                            regex = r"<a href=\"(.*?)\">Direct Download Link<\/a>"
-                            searches = [re.search(regex, source) for source in sources]
-                            links = [search.group(1) if search else "NA" for search in searches]
+                            links = [dLink if dLink else "NA" for dLink in downloadLinks]
                             newUrl = list(zip(links, downloadInfo))
 
                             if all([link == "NA" for link in links]):
@@ -595,7 +600,7 @@ def extractVideoFiles(aniEpUrl, chromePath, repeat=5, currentRepeat=0):
             logging.info("Webscraper: --------------------------------------------")
             pass
 
-        return finished and newUrl or recursiveGetVideoUrl(newUrl, chromePath)
+        return finished and newUrl or recursiveGetVideoUrl(newUrl)
 
     #aniEpUrl = r"https://animedao.to/view/431131313/"
     mode = aniEpUrl.startswith("https://www1.gogoanime.cm") and "gogoanime" or "animedao"
@@ -629,7 +634,7 @@ def extractVideoFiles(aniEpUrl, chromePath, repeat=5, currentRepeat=0):
 
             urls = []
             for url in sources:
-                endUrl = recursiveGetVideoUrl(url, chromePath)
+                endUrl = recursiveGetVideoUrl(url)
                 urls.append(endUrl)
 
                 if endUrl != "empty":
