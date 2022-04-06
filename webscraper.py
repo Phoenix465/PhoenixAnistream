@@ -367,7 +367,6 @@ def GetDownloadLink(link, functionParam, threadI, resultsQueue, overrideIndex=No
     hashQueue = queue.Queue()
 
     def getAltHash(url, queue):
-        sH = time()
         urlR = requests.get(url, headers=headers)
         urlContent = urlR.content.decode("utf-8")
 
@@ -393,7 +392,7 @@ def GetDownloadLink(link, functionParam, threadI, resultsQueue, overrideIndex=No
         if not alternateHash:
             if hashThread.is_alive():
                 hashThread.join()
-                print(threadI, i, "Thread Not Finished")
+                logging.info(f"Webscraper: Token Grabber {threadI} - Thread Not Finished at {i}")
 
             alternateHash = hashQueue.get()
             #hashThread = threading.Thread(target=getAltHash, args=(link, hashQueue,))
