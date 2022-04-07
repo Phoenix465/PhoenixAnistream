@@ -353,9 +353,10 @@ def GetAniData(aniUrl):
 def GetDownloadLink(link, functionParam, threadI, resultsQueue, overrideIndex=None):
     serverId = 0
     serverUrl = ""
+
     for i in range(3):
         serverR = requests.get(scrapeServers[i])
-        if serverR.status_code == 200:
+        if serverR.status_code == 200 and ((overrideIndex is not None and i >= overrideIndex) or overrideIndex is None):
             serverUrl = scrapeServers[i] + "api2/GetToken"
             serverId = i
             break
