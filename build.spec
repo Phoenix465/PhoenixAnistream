@@ -1,17 +1,21 @@
 # -*- mode: python ; coding: utf-8 -*-
 from kivy_deps import sdl2, glew
 import user_agent
+import ffpyplayer
+FFPYPLAYER_PATH = ffpyplayer.__path__[0]
 
 block_cipher = None
 
 
 a = Analysis(['main.py'],
              pathex=[],
-             binaries=[],
+             binaries=[
+                  (f'{FFPYPLAYER_PATH}\\*.pyd', 'ffpyplayer'),
+                 (f'{FFPYPLAYER_PATH}\\player\\*.pyd', 'ffpyplayer/player'),
+             ],
              datas=[('AniApp.kv', '.')],
              hiddenimports=[],
              hookspath=[],
-             hooksconfig={},
              runtime_hooks=[],
              excludes=[],
              win_no_prefer_redirects=False,
