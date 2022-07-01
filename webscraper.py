@@ -22,10 +22,7 @@ headers = {
 
 altHashRegex = 'name="hash" value="(.*?)"'
 
-downloadUrlRegex = (
-    r"<span style=\"background:#f9f9f9;border:1px dotted #bbb;padding:7px;\">\n"
-    r"<a href=\"(.*?)\">Direct Download Link<\/a>\n"
-    r"<\/span>")
+downloadUrlRegex = (r"<a href=\"(.*?)\"style=\"(?:.*?)\">Download Video<\/a>")
 
 scrapeServers = [
     "https://sbplay2-token-grabber.herokuapp.com/",
@@ -386,6 +383,7 @@ def GetDownloadLink(link, functionParam, threadI, resultsQueue, overrideIndex=No
 
     for i in range(5):
         rUrl = serverUrl
+        # print(rUrl)
         r = requests.get(rUrl, headers=headers)
         recaptchaToken = r.content.decode("utf-8")
         #print(threadI, i, recaptchaToken)
@@ -453,6 +451,8 @@ def GetDownloadLink(link, functionParam, threadI, resultsQueue, overrideIndex=No
 
 
 def extractVideoFiles(aniEpUrl, repeat=5, currentRepeat=0):
+    name = "ssbstream"
+
     def getUrlProtocolDomain(url):
         urlParsed = urlparse(url)
         return urlParsed.scheme, urlParsed.netloc, urlParsed.path.split("/")[1]
@@ -506,7 +506,7 @@ def extractVideoFiles(aniEpUrl, repeat=5, currentRepeat=0):
 
                             newUrl = links[0]
 
-                    elif urlDomain == "sbplay2.com" or urlDomain == "sbplay2.xyz":
+                    elif name in urlDomain:
                         if urlBasePath == "d":
                             aTags = tree.find_all("a", {"href": "#"})
                             functionCalls = [aTag.get("onclick") for aTag in aTags if aTag.get("onclick")]
@@ -630,7 +630,7 @@ def extractVideoFiles(aniEpUrl, repeat=5, currentRepeat=0):
 
             elif mode == "gogoanime":
                 sources = [tree.find("li", {"class", "dowloads"}).find("a")["href"]]
-                sources.extend([aTag["data-video"] for aTag in tree.find_all("a") if aTag.has_attr("data-video") and "sbplay2" in aTag["data-video"]])
+                sources.extend([aTag["data-video"] for aTag in tree.find_all("a") if aTag.has_attr("data-video") and name in aTag["data-video"]])
 
             urls = []
             for url in sources:
